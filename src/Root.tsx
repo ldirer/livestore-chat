@@ -5,18 +5,14 @@ import { FPSMeter } from '@overengineering/fps-meter'
 import type React from 'react'
 import { unstable_batchedUpdates as batchUpdates } from 'react-dom'
 
-import { Footer } from './components/Footer.js'
-import { Header } from './components/Header.js'
 import { MainSection } from './components/MainSection.js'
 import LiveStoreWorker from './livestore.worker?worker'
 import { schema } from './livestore/schema.js'
 import { getStoreId } from './util/store-id.js'
 
 const AppBody: React.FC = () => (
-  <section className="todoapp">
-    <Header />
+  <section>
     <MainSection />
-    <Footer />
   </section>
 )
 
@@ -26,6 +22,7 @@ const adapter = makePersistedAdapter({
   storage: { type: 'opfs' },
   worker: LiveStoreWorker,
   sharedWorker: LiveStoreSharedWorker,
+  // resetPersistence: true
 })
 
 export const App: React.FC = () => (
