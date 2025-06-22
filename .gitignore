@@ -1,1 +1,5 @@
 .direnv
+.wrangler/
+node_modules/
+.claude/
+.idea/
