@@ -9,13 +9,14 @@ class_name = "WebSocketServer"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["WebSocketServer"]
+# CloudFlare kindly asks to replace new_classes with new_sqlite_classes if on free plan
+#new_classes = ["WebSocketServer"]
+new_sqlite_classes = ["WebSocketServer"]
 
 [[d1_databases]]
 binding = "DB"
-database_name = "livestore-sync-cf-demo"
-database_id = "1c9b5dae-f1fa-49d8-83fa-7bd5b39c4121"
-# database_id = "${LIVESTORE_CF_SYNC_DATABASE_ID}"
+database_name = "livestore-chat"
+database_id = "b7005a3e-8be9-4301-b1aa-1ff2f11d7fc8"
 
 [vars]
 # should be set via CF dashboard (as secret)

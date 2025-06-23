@@ -3,3 +3,9 @@
 node_modules/
 .claude/
 .idea/
+
+.envrc.local
+# Local Netlify folder
+.netlify
+
+dist/
