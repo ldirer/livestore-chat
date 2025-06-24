@@ -1,7 +1,8 @@
 import { queryDb } from '@livestore/livestore'
 import { useStore } from '@livestore/react'
 import { useEffect } from 'react'
-import { events, tables } from '../livestore/schema.js'
+import { events, tables } from '../livestore/user-schema.ts'
+import { getUserStoreId } from '../util/store-id.ts'
 import { useURLParams } from './useURLParams'
 
 function randomUserName() {
@@ -46,16 +47,20 @@ export const useCurrentUser = ():
     // If user doesn't exist, create it
     if (users.length === 0) {
       const userId = crypto.randomUUID()
+      // this is a little odd? but it's convenient to have a userId <-> storeId mapping.
+      const privateId = getUserStoreId()
       console.log('CREATING NEW USER', userId, username)
       store.commit(
         events.userProfileCreated({
           id: userId,
+          privateId,
           username,
           createdAt: new Date(),
         }),
       )
     }
-  }, [usernameFromParams])
+  }, [usernameFromParams, users.length, username, store.commit])
 
+  console.log('users[0]', users[0])
   return users[0]
 }

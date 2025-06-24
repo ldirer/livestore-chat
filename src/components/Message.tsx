@@ -1,6 +1,6 @@
 import { queryDb } from '@livestore/livestore'
 import { useStore } from '@livestore/react'
-import { tables } from '../livestore/schema.ts'
+import { tables } from '../livestore/workspace-schema.ts'
 
 import type { TMessage } from './ChatView.tsx'
 

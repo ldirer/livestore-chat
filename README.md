@@ -10,6 +10,21 @@ bun dev
 ```
 
 
+Clear auth server backend storage: 
+
+```
+rm -r .server-livestore-adapter/*
+```
+
+
+# Ugh
+
+The backend TS server uses the frontend package.json.
+If it just works.
+Temporary of course... I'm hoping tree shaking makes it all work ok. The backend imports code from frontend (livestore schemas).
+
+Eventually I just copied stuff so there shouldn't be imports, which is just simpler in this case (avoids confusion too).
+
 ## Deployment
 
 Using Netlify for the static build. Could have used CloudFlare for both...

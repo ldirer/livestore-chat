@@ -9,3 +9,5 @@ node_modules/
 .netlify
 
 dist/
+.server-livestore-adapter/
+backend.log

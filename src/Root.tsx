@@ -1,33 +1,63 @@
 import { makePersistedAdapter } from '@livestore/adapter-web'
 import LiveStoreSharedWorker from '@livestore/adapter-web/shared-worker?sharedworker'
-import { LiveStoreProvider } from '@livestore/react'
+import { queryDb } from '@livestore/livestore'
+import { LiveStoreProvider, useStore } from '@livestore/react'
 import { FPSMeter } from '@overengineering/fps-meter'
 import type React from 'react'
 import { unstable_batchedUpdates as batchUpdates } from 'react-dom'
-
 import { MainSection } from './components/MainSection.js'
-import { schema } from './livestore/schema.js'
-import LiveStoreWorker from './livestore.worker?worker'
-import { getStoreId } from './util/store-id.js'
+// import { schema } from './livestore/workspace-schema.ts'
+import { tables, schema as userSchema } from './livestore/user-schema.ts'
+import UserLiveStoreWorker from './livestore.worker?worker'
+import { getUserStoreId } from './util/store-id.js'
 
-const AppBody: React.FC = () => (
-  <section>
-    <MainSection />
-  </section>
-)
+const AppBody: React.FC = () => {
+  // wait for the store to have completed a pull.
+  const searchParams = new URLSearchParams(window.location.search)
+  const urlStoreId = searchParams.get('storeId')
+  const { store } = useStore()
+  const users = store.useQuery(queryDb(tables.userProfile))
+  // const states = store._dev.syncStates()
 
-const storeId = getStoreId()
+  // console.dir(store._dev)
+  console.log('store._dev.syncStates()', store._dev.syncStates.subscribe())
+
+  if (urlStoreId !== null && users.length === 0) {
+    // wait for the first pull to have completed if we know it comes from an existing store.
+    // this works around the 'create default if not present' logic running on a store that has data, just not yet loaded.
+    return null
+  }
+  console.log('users.length', users.length)
+
+  return (
+    <section>
+      <MainSection />
+    </section>
+  )
+}
+
+const storeId = getUserStoreId()
+
+// // would-be TODO next: two adapters. Then write a custom provider? Need two stores. Then we commit events in the two stores?
+// // no transactional guarantees. We just live with it. AAAAH all my life learnings go against this.
+// const workspaceAdapter = makePersistedAdapter({
+//   storage: { type: 'opfs' },
+//   worker: LiveStoreWorker,
+//   sharedWorker: LiveStoreSharedWorker,
+//   // resetPersistence: true
+// })
 
 const adapter = makePersistedAdapter({
   storage: { type: 'opfs' },
-  worker: LiveStoreWorker,
+  worker: UserLiveStoreWorker,
   sharedWorker: LiveStoreSharedWorker,
   // resetPersistence: true
 })
 
 export const App: React.FC = () => (
   <LiveStoreProvider
-    schema={schema}
+    schema={userSchema}
+    // disableDevtools={true}
     adapter={adapter}
     renderLoading={(_) => <div>Loading LiveStore ({_.stage})...</div>}
     batchUpdates={batchUpdates}

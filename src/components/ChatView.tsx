@@ -1,7 +1,7 @@
 import { queryDb } from '@livestore/livestore'
 import { useStore } from '@livestore/react'
 import React from 'react'
-import { events, tables } from '../livestore/schema.ts'
+import { events, tables } from '../livestore/workspace-schema.ts'
 import { ChatMessageInput } from './ChatMessageInput.tsx'
 import { Message } from './Message.tsx'
 
