@@ -1,7 +1,6 @@
-import React from 'react'
-import {useCurrentUser} from "../hooks/useCurrentUser.ts";
-import {ChatView} from "./ChatView.tsx";
-
+import type React from 'react'
+import { useCurrentUser } from '../hooks/useCurrentUser.ts'
+import { ChatView } from './ChatView.tsx'
 
 export const MainSection: React.FC = () => {
   const user = useCurrentUser()
@@ -9,5 +8,5 @@ export const MainSection: React.FC = () => {
     // This might flash... eh.
     return <div>Finding you a username...</div>
   }
-  return <ChatView user={user}/>
+  return <ChatView user={user} />
 }
