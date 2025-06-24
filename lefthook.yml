@@ -1,0 +1,11 @@
+pre-commit:
+  commands:
+    biome-check:
+      glob: "*.{js,ts,jsx,tsx,json,jsonc}"
+      run: |
+        bun lint:fix {staged_files}
+        git diff --exit-code --quiet -- {staged_files} || {
+          echo >&2 "✨ Biome applied fixes — please review and stage changes."
+          exit 1
+        }
+      stage_fixed: false
