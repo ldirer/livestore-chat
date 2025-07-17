@@ -113,11 +113,10 @@ type MagicLinkValidation =
   reason: 'token_not_found'
 }
 
-type MagicLinkToken = string
+type URLString = `http://${string}` | `https://${string}`
 export interface MagicLinkService {
-  validateMagicLink: (token: string) => Promise<MagicLinkValidation>
-  createMagicLink: (email: string) => Promise<MagicLinkToken>
-  generateLoginLink: (email: string) => Promise<string>
+  validateMagicToken: (token: string) => Promise<MagicLinkValidation>
+  createMagicLink: (email: string) => Promise<URLString>
 }
 
 export { SQLiteMagicLinkStore }
@@ -131,7 +130,7 @@ export async function createMagicLinkStore(): Promise<SQLiteMagicLinkStore> {
 export class DefaultMagicLinkService implements MagicLinkService {
   constructor(private db: MagicLinkStore) {}
 
-  validateMagicLink = async (token: string): Promise<MagicLinkValidation> => {
+  validateMagicToken = async (token: string): Promise<MagicLinkValidation> => {
     const link = await this.db.getMagicLink(token)
     
     if (!link) {
@@ -152,13 +151,8 @@ export class DefaultMagicLinkService implements MagicLinkService {
     return { status: 'valid', email: link.email }
   }
 
-  createMagicLink = async (email: string): Promise<MagicLinkToken> => {
+  createMagicLink = async (email: string): Promise<URLString> => {
     const link = await this.db.createMagicLink(email)
-    return link.id
-  }
-
-  generateLoginLink = async (email: string): Promise<string> => {
-    const token = await this.createMagicLink(email)
-    return `${FRONTEND_URL}?token=${token}`
+    return `${FRONTEND_URL}?token=${link.id}`
   }
 }
