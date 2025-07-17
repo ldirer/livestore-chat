@@ -108,7 +108,7 @@ export function createServer(
         }),
       )
 
-      await sendLoginLink(user, email.trim())
+      await sendLoginLink(user)
 
       return c.json({
         success: true,
@@ -167,7 +167,7 @@ export function createServer(
       }
 
       // Send magic link (stub function)
-      await sendLoginLink(user, email.trim())
+      await sendLoginLink(user)
 
       return c.json({
         success: true,
