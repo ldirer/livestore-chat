@@ -11,12 +11,25 @@ export type UserInfo = {
   username: string
 }
 
-export type UseCurrentUserStoresState = {
-  user: UserInfo | null
-  stores: StoreInfo[]
-  loading: boolean
-  error: string | null
-}
+export type UseCurrentUserStoresState =
+  | {
+      user: UserInfo | null
+      stores: StoreInfo[]
+      loading: true
+      error: string | null
+    }
+  | {
+      user: UserInfo
+      stores: StoreInfo[]
+      loading: false
+      error: null
+    }
+  | {
+      user: null
+      stores: StoreInfo[]
+      loading: false
+      error: string
+    }
 
 /**
  * Hook to get current user info and their stores from /auth/me endpoint
