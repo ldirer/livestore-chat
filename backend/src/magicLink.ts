@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto'
-
+import sqlite3 from 'sqlite3'
+import { open, Database } from 'sqlite'
+const FRONTEND_URL = "http://localhost:3000/"
 const config = {
   LINK_VALIDITY_MINUTES: 15,
   DB_PATH: './magic-links.db',
@@ -14,36 +16,82 @@ type MagicLink = {
 }
 
 interface MagicLinkStore {
-  createMagicLink: (email: string) => MagicLink
-  getMagicLink: (token: string) => MagicLink | undefined
-  markMagicLinkAsUsed: (token: string) => void // possibly could be combined with "getMagicLink" into a single operation
+  createMagicLink: (email: string) => Promise<MagicLink>
+  getMagicLink: (token: string) => Promise<MagicLink | undefined>
+  markMagicLinkAsUsed: (token: string) => Promise<void> // possibly could be combined with "getMagicLink" into a single operation
 }
 
 class SQLiteMagicLinkStore implements MagicLinkStore {
+  private db!: Database
+
   constructor() {
-    // initialize database connection
-    // create magic links table if it does not exist
-    this.db = {}
+    // Constructor will be async initialized via init() method
   }
 
-  getMagicLink = (token: string): MagicLink | undefined => {
-    return this.db.execute('SELECT * FROM magic_links WHERE id = $1', token)
+  async init() {
+    this.db = await open({
+      filename: config.DB_PATH,
+      driver: sqlite3.Database
+    })
+
+    // Create magic links table if it does not exist
+    await this.db.exec(`
+      CREATE TABLE IF NOT EXISTS magic_links (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        created_at DATETIME NOT NULL,
+        expires_at DATETIME NOT NULL,
+        used_at DATETIME NULL
+      )
+    `)
   }
-  markMagicLinkAsUsed = (token: string) => {
-    this.db.execute(
-      'UPDATE magic_links SET used_at = NOW() WHERE id = $1',
-      token,
+
+  getMagicLink = async (token: string): Promise<MagicLink | undefined> => {
+    const row = await this.db.get(
+      'SELECT id, email, created_at, expires_at, used_at FROM magic_links WHERE id = ?',
+      token
+    )
+    
+    if (!row) return undefined
+    
+    return {
+      id: row.id,
+      email: row.email,
+      createdAt: new Date(row.created_at),
+      expiresAt: new Date(row.expires_at),
+      usedAt: row.used_at ? new Date(row.used_at) : null
+    }
+  }
+  markMagicLinkAsUsed = async (token: string): Promise<void> => {
+    await this.db.run(
+      'UPDATE magic_links SET used_at = NOW() WHERE id = ?',
+      token
     )
   }
 
-  createMagicLink = (email: string): MagicLink => {
-    return {
-      id: randomUUID(),
+  createMagicLink = async (email: string): Promise<MagicLink> => {
+    const id = randomUUID()
+    const createdAt = new Date()
+    const expiresAt = new Date(createdAt.getTime() + config.LINK_VALIDITY_MINUTES * 60 * 1000)
+    
+    const link: MagicLink = {
+      id,
       email,
-      createdAt: new Date(),
-      expiresAt: new Date(), //  + config.LINK_VALIDITY_MINUTES,   //@CLAUDE make the "+ 15 minutes" work
+      createdAt,
+      expiresAt,
       usedAt: null,
     }
+    
+    await this.db.run(
+      'INSERT INTO magic_links (id, email, created_at, expires_at, used_at) VALUES (?, ?, ?, ?, ?)',
+      id,
+      email,
+      createdAt.toISOString(),
+      expiresAt.toISOString(),
+      null
+    )
+    
+    return link
   }
 }
 
@@ -60,20 +108,57 @@ type MagicLinkValidation =
       status: 'invalid'
       reason: 'already_used'
     }
+  | {
+  status: 'invalid'
+  reason: 'token_not_found'
+}
 
 type MagicLinkToken = string
 export interface MagicLinkService {
-  validateMagicLink: (token: string) => MagicLinkValidation
-  createMagicLink: (email: string) => MagicLinkToken
+  validateMagicLink: (token: string) => Promise<MagicLinkValidation>
+  createMagicLink: (email: string) => Promise<MagicLinkToken>
+  generateLoginLink: (email: string) => Promise<string>
+}
+
+export { SQLiteMagicLinkStore }
+
+export async function createMagicLinkStore(): Promise<SQLiteMagicLinkStore> {
+  const store = new SQLiteMagicLinkStore()
+  await store.init()
+  return store
 }
 
 export class DefaultMagicLinkService implements MagicLinkService {
   constructor(private db: MagicLinkStore) {}
 
-  validateMagicLink = (token: string): MagicLinkValidation => {
-    const link = this.db.getMagicLink(token)
-    // ...
+  validateMagicLink = async (token: string): Promise<MagicLinkValidation> => {
+    const link = await this.db.getMagicLink(token)
+    
+    if (!link) {
+      return { status: 'invalid', reason: 'token_not_found' }
+    }
+    
+    if (link.usedAt) {
+      return { status: 'invalid', reason: 'already_used' }
+    }
+    
+    if (new Date() > link.expiresAt) {
+      return { status: 'invalid', reason: 'expired' }
+    }
+    
+    // Mark as used
+    await this.db.markMagicLinkAsUsed(token)
+    
+    return { status: 'valid', email: link.email }
   }
 
-  createMagicLink(email: string): MagicLinkToken {}
+  createMagicLink = async (email: string): Promise<MagicLinkToken> => {
+    const link = await this.db.createMagicLink(email)
+    return link.id
+  }
+
+  generateLoginLink = async (email: string): Promise<string> => {
+    const token = await this.createMagicLink(email)
+    return `${FRONTEND_URL}?token=${token}`
+  }
 }
