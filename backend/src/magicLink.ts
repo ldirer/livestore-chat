@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import sqlite3 from 'sqlite3'
 import { open, Database } from 'sqlite'
-const FRONTEND_URL = "http://localhost:3000/"
+import {FRONTEND_URL} from "./config";
+
 const config = {
   LINK_VALIDITY_MINUTES: 15,
   DB_PATH: './magic-links.db',
