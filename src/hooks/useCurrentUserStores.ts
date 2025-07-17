@@ -71,11 +71,3 @@ export const useCurrentUserStores = (): UseCurrentUserStoresState => {
 
   return state
 }
-
-/**
- * Hook to get just the current user info (convenience wrapper)
- */
-export const useCurrentUser = (): UserInfo | null => {
-  const { user } = useCurrentUserStores()
-  return user
-}
