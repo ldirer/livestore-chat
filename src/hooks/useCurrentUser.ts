@@ -1,8 +1,6 @@
 import { queryDb } from '@livestore/livestore'
 import { useStore } from '@livestore/react'
-import { useEffect } from 'react'
-import { events, tables } from '../livestore/user-schema.ts'
-import { getUserStoreId } from '../util/store-id.ts'
+import { tables } from '../livestore/user-schema.ts'
 import { useURLParams } from './useURLParams'
 
 function randomUserName() {
@@ -14,53 +12,32 @@ function randomUserName() {
  * Gets username from URL query params, or generates a random one if not present
  * Eventually this should be replaced by proper authentication
  */
-export const useCurrentUser = ():
-  | typeof tables.userProfile.Type
-  | undefined => {
+export const useCurrentUser = (): {
+  isLoading: boolean
+  user: typeof tables.userProfile.Type | undefined
+} => {
   console.log('useCurrentUser', useCurrentUser)
   const { store } = useStore()
-
-  // Get username from URL query params using the reactive hook
-  const params = useURLParams()
-  const usernameFromParams = params.username
-  console.log('params.username', params.username)
-
-  const username = usernameFromParams || randomUserName()
+  const token = useAuthToken()
 
   // Look up user in database
-  const users = store.useQuery(
-    queryDb(
-      tables.userProfile.where({
-        username,
-      }),
-    ),
-  )
+  const users = store.useQuery(queryDb(tables.userProfile))
+  if (users.length > 0) {
+    return { isLoading: false, user: users[0] }
+  }
 
-  useEffect(() => {
-    if (!usernameFromParams) {
-      // will trigger a re-execution of this hook (URL as single source of truth)
-      const url = new URL(window.location.href)
-      url.searchParams.set('username', username)
-      window.history.replaceState({}, '', url)
-      return
-    }
-    // If user doesn't exist, create it
-    if (users.length === 0) {
-      const userId = crypto.randomUUID()
-      // this is a little odd? but it's convenient to have a userId <-> storeId mapping.
-      const privateId = getUserStoreId()
-      console.log('CREATING NEW USER', userId, username)
-      store.commit(
-        events.userProfileCreated({
-          id: userId,
-          privateId,
-          username,
-          createdAt: new Date(),
-        }),
-      )
-    }
-  }, [usernameFromParams, users.length, username, store.commit])
+  // no users: we could be loading a store... or we could just have no user
+  return { isLoading: hasAuthToken(), user: undefined }
+}
 
-  console.log('users[0]', users[0])
-  return users[0]
+const useAuthToken = (): string | undefined => {
+  const params = useURLParams()
+  return params.authToken
+}
+
+type TaggedStoreId = { type: 'user' | 'workspace'; id: string }
+
+// TODO@ldirer
+function parseStoreIdsParam(storeIds: string): TaggedStoreId[] {
+  return []
 }
