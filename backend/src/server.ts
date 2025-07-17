@@ -183,6 +183,38 @@ export function createServer(
     }
   })
 
+  // GET /auth/me endpoint
+  // Returns current user info and their stores
+  app.get('/auth/me', async (c) => {
+    try {
+      // Stub response - assume authentication is handled elsewhere
+      return c.json({
+        success: true,
+        user: {
+          id: 'user_123',
+          email: 'test@example.com',
+          username: 'test',
+        },
+        stores: [
+          { type: 'user', id: 'user_store_123' },
+          { type: 'workspace', id: 'workspace_abc' },
+          { type: 'workspace', id: 'workspace_xyz' },
+        ],
+      })
+    } catch (error) {
+      console.error('Auth me error:', error)
+      return c.json(
+        {
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'An internal server error occurred',
+          },
+        },
+        500,
+      )
+    }
+  })
+
   return app
 }
 
