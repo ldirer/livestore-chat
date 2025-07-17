@@ -65,7 +65,8 @@ class SQLiteMagicLinkStore implements MagicLinkStore {
   }
   markMagicLinkAsUsed = async (token: string): Promise<void> => {
     await this.db.run(
-      'UPDATE magic_links SET used_at = NOW() WHERE id = ?',
+      'UPDATE magic_links SET used_at = ? WHERE id = ?',
+      new Date().toISOString(),
       token
     )
   }

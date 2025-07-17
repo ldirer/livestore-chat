@@ -12,7 +12,7 @@ async function main() {
 
   // Start the server with both stores
   // The onBootStatus should trigger when the stores are actually used
-  startServer(userStore, testStore, 9003)
+  await startServer(userStore, testStore, 9003)
 }
 
 main()

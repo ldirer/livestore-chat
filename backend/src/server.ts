@@ -1,23 +1,25 @@
-import { serve } from '@hono/node-server'
-import type { Store } from '@livestore/livestore'
-import { queryDb } from '@livestore/livestore'
-import { Hono } from 'hono'
-import { sendLoginLink } from './auth.ts'
-import type { schema as testSchema } from './schema/test'
-import { tables as testTables } from './schema/test'
-import type { schema as userSchema } from './schema/user'
-import { events as userEvents, tables as userTables } from './schema/user'
+import {serve} from '@hono/node-server'
+import type {Store} from '@livestore/livestore'
+import {queryDb} from '@livestore/livestore'
+import {Hono} from 'hono'
+import {sendLoginLink} from './auth'
+import type {MagicLinkService} from './magicLink.ts'
+import {createMagicLinkStore, DefaultMagicLinkService} from './magicLink'
+import type {schema as testSchema} from './schema/test'
+import {tables as testTables} from './schema/test'
+import type {schema as userSchema} from './schema/user'
+import {events as userEvents, tables as userTables} from './schema/user'
 
 type TestStoreType = Store<typeof testSchema>
 type UserStoreType = Store<typeof userSchema>
 
 interface AppBindings {
   store: UserStoreType
+  magicLinks: MagicLinkService
 }
 
 // can safely be ignored for now
 function sendEventToUserSpecificStore(
-  privateId: any,
   event: ReturnType<(typeof userEvents)[keyof typeof userEvents]>,
 ) {
   console.log('fake sending event', event)
@@ -26,8 +28,15 @@ function sendEventToUserSpecificStore(
 export function createServer(
   userStore: UserStoreType,
   testStore: TestStoreType,
+  magicLinks: MagicLinkService,
 ) {
   const app = new Hono<{ Bindings: AppBindings }>()
+  
+  // Set magic links service in context
+  app.use('*', async (c, next) => {
+    c.set('magicLinks', magicLinks)
+    await next()
+  })
 
   // Health check endpoint
   app.get('/', (c) => {
@@ -108,7 +117,7 @@ export function createServer(
         }),
       )
 
-      await sendLoginLink(user)
+      await sendLoginLink(magicLinks, user)
 
       return c.json({
         success: true,
@@ -166,8 +175,8 @@ export function createServer(
         )
       }
 
-      // Send magic link (stub function)
-      await sendLoginLink(user)
+      // Send magic link
+      await sendLoginLink(magicLinks, user)
 
       return c.json({
         success: true,
@@ -187,17 +196,72 @@ export function createServer(
     }
   })
 
+  // POST /auth/submit-magic-link endpoint
+  app.post('/auth/submit-magic-link', async (c) => {
+    try {
+      const body = await c.req.json()
+      const { token } = body
+
+      if (!token) {
+        return c.json(
+          {
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Missing required field: token',
+            },
+          },
+          400,
+        )
+      }
+
+      const validation = await magicLinks.validateMagicToken(token)
+
+      if (validation.status === 'invalid') {
+        return c.json(
+          {
+            error: {
+              code: validation.reason.toUpperCase(),
+            },
+          },
+          400,
+        )
+      }
+
+      return c.json({
+        success: true,
+        email: validation.email,
+        message: 'Magic link validated successfully',
+      })
+    } catch (error) {
+      console.error('Magic link validation error:', error)
+      return c.json(
+        {
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'An internal server error occurred',
+          },
+        },
+        500,
+      )
+    }
+  })
+
   return app
 }
 
-export function startServer(
+export async function startServer(
   userStore?: UserStoreType,
   testStore?: TestStoreType,
   port = 9003,
 ) {
+  // Initialize magic link service
+  const magicLinkStore = await createMagicLinkStore()
+  const magicLinks = new DefaultMagicLinkService(magicLinkStore)
+  
   const app = createServer(
     userStore || ({} as UserStoreType),
     testStore || ({} as TestStoreType),
+    magicLinks,
   )
 
   const server = serve(

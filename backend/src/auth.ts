@@ -7,7 +7,7 @@ export async function sendLoginLink(
   magicLinks: MagicLinkService,
   user: UserType,
 ) {
-  const loginUrl = await magicLinks.createMagicLink(user)
+  const loginUrl = await magicLinks.createMagicLink(user.email)
 
   const emailContent = `Click this link to log in: ${loginUrl}`
 
