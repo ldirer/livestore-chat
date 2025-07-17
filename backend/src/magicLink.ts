@@ -155,6 +155,6 @@ export class DefaultMagicLinkService implements MagicLinkService {
 
   createMagicLink = async (email: string): Promise<URLString> => {
     const link = await this.db.createMagicLink(email)
-    return `${FRONTEND_URL}?token=${link.id}`
+    return `${FRONTEND_URL}/login?token=${link.id}`
   }
 }

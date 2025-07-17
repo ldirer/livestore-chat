@@ -5,6 +5,7 @@ import { LiveStoreProvider, useStore } from '@livestore/react'
 import { FPSMeter } from '@overengineering/fps-meter'
 import type React from 'react'
 import { unstable_batchedUpdates as batchUpdates } from 'react-dom'
+import EmailLoginPage from './components/EmailLoginPage.js'
 import { MainSection } from './components/MainSection.js'
 // import { schema } from './livestore/workspace-schema.ts'
 import { tables, schema as userSchema } from './livestore/user-schema.ts'
@@ -12,6 +13,12 @@ import UserLiveStoreWorker from './livestore.worker?worker'
 import { getUserStoreId } from './util/store-id.js'
 
 const AppBody: React.FC = () => {
+  // Check if this is a login page
+  const currentPath = window.location.pathname
+  if (currentPath === '/login') {
+    return <EmailLoginPage />
+  }
+
   // wait for the store to have completed a pull.
   const searchParams = new URLSearchParams(window.location.search)
   const urlStoreId = searchParams.get('storeId')
@@ -20,7 +27,7 @@ const AppBody: React.FC = () => {
   // const states = store._dev.syncStates()
 
   // console.dir(store._dev)
-  console.log('store._dev.syncStates()', store._dev.syncStates.subscribe())
+  // console.log('store._dev.syncStates()', store._dev.syncStates.subscribe())
 
   if (urlStoreId !== null && users.length === 0) {
     // wait for the first pull to have completed if we know it comes from an existing store.

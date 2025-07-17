@@ -8,6 +8,12 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   server: {
     port: process.env.PORT ? Number(process.env.PORT) : 60_001,
+    proxy: {
+      '/auth': {
+        target: 'http://localhost:9003',
+        changeOrigin: true,
+      },
+    },
   },
   worker: { format: 'es' },
   plugins: [
