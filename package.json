@@ -4,7 +4,6 @@
   "type": "module",
   "private": true,
   "dependencies": {
-    "@hono/node-server": "^1.14.4",
     "@livestore/adapter-node": "^0.3.1",
     "@livestore/adapter-web": "0.3.1",
     "@livestore/common": "^0.3.1",
@@ -15,7 +14,6 @@
     "@livestore/utils": "^0.3.1",
     "@livestore/wa-sqlite": "1.0.5-dev.2",
     "@overengineering/fps-meter": "0.1.2",
-    "hono": "^4.8.3",
     "react": "19.0.0",
     "react-dom": "19.0.0"
   },
