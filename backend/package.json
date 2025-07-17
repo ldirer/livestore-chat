@@ -4,11 +4,11 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "bun index.ts",
-    "dev": "bun --watch index.ts",
+    "start": "bun src/index.ts",
+    "dev": "bun --watch src/index.ts",
     "build": "tsc",
-    "lint": "biome check .",
-    "lint:fix": "biome check --write ."
+    "lint": "biome check src/",
+    "lint:fix": "biome check --write src/"
   },
   "dependencies": {
     "@hono/node-server": "^1.16.0",
@@ -16,10 +16,12 @@
     "@livestore/common": "^0.3.1",
     "@livestore/livestore": "^0.3.1",
     "@livestore/utils": "^0.3.1",
-    "hono": "^4.8.5"
+    "hono": "^4.8.5",
+    "sqlite3": "^5.1.7"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.5",
+    "@types/node": "^20.0.0",
     "typescript": "^5.8.3"
   },
   "engines": {
