@@ -25,6 +25,29 @@ function sendEventToUserSpecificStore(
   console.log('fake sending event', event)
 }
 
+// Stub function to create a new user
+function createUser(email: string, userStore: UserStoreType): typeof userTables.user.Type {
+  const privateId = `user_${Date.now()}_${Math.random().toString(36).substring(2)}`
+  const username = email.split('@')[0] // Simple username from email
+  
+  const newUser = {
+    privateId,
+    username,
+    email,
+  }
+  
+  // This would normally commit to the store, but for now we'll stub it
+  sendEventToUserSpecificStore(
+    userEvents.userEmailAttached({
+      privateId,
+      username,
+      email,
+    })
+  )
+  
+  return newUser
+}
+
 export function createServer(
   userStore: UserStoreType,
   testStore: TestStoreType,
@@ -55,90 +78,9 @@ export function createServer(
     return c.json(testItems)
   })
 
-  // POST /signup endpoint
-  // if the email is already attached to _another_ user, this should behave as a login endpoint, except in the store
-  // emitting the event it may look like the email did get attached.
-  // I guess that's a bug? Accepting that, there are few legitimate cases.
-  app.post('/signup', async (c) => {
-    try {
-      const body = await c.req.json()
-      const { email, privateId } = body
-
-      if (!email || !privateId) {
-        return c.json(
-          {
-            error: {
-              code: 'VALIDATION_ERROR',
-              message: 'Missing required fields: email, privateId',
-            },
-          },
-          400,
-        )
-      }
-
-      // Look up user by privateId
-      const users = userStore.query(
-        queryDb(userTables.user.where({ privateId })),
-      )
-      const user = users[0]
-
-      if (!user) {
-        return c.json(
-          {
-            error: {
-              code: 'USER_NOT_FOUND',
-              message: 'User not found with provided privateId',
-            },
-          },
-          400,
-        )
-      }
-
-      // Check if email is already set
-      if (user.email && user.email.trim() !== '') {
-        return c.json(
-          {
-            error: {
-              code: 'EMAIL_ALREADY_SET',
-              message: 'Email is already set for this user',
-            },
-          },
-          400,
-        )
-      }
-
-      // Update email by committing an event. This should be a backend-only event. There are ways to authenticate that I guess.
-      sendEventToUserSpecificStore(
-        privateId,
-        userEvents.userEmailAttached({
-          privateId,
-          username: user.username,
-          email: email.trim(),
-        }),
-      )
-
-      await sendLoginLink(magicLinks, user)
-
-      return c.json({
-        success: true,
-        message: 'Email updated successfully',
-      })
-    } catch (error) {
-      console.error('Signup error:', error)
-      return c.json(
-        {
-          error: {
-            code: 'INTERNAL_ERROR',
-            message: 'An internal server error occurred',
-          },
-        },
-        500,
-      )
-    }
-  })
-
-  // POST /login endpoint
-  app.post('/login', async (c) => {
+  // POST /auth/request-magic-link endpoint
+  // Unified login/signup flow - creates user if doesn't exist, sends magic link either way
+  app.post('/auth/request-magic-link', async (c) => {
     try {
       const body = await c.req.json()
       const { email } = body
@@ -155,24 +97,18 @@ export function createServer(
         )
       }
 
+      const trimmedEmail = email.trim()
+      
       // Look up user by email
       const users = userStore.query(
-        queryDb(userTables.user.where({ email: email.trim() })),
+        queryDb(userTables.user.where({ email: trimmedEmail })),
       )
-      const user = users[0] as typeof userTables.user.Type | undefined
+      let user = users[0] as typeof userTables.user.Type | undefined
 
+      // If user doesn't exist, create them
       if (!user) {
-        // This is bad practice as it can leak emails used on the platform,
-        // but we favor debuggability right now
-        return c.json(
-          {
-            error: {
-              code: 'EMAIL_NOT_FOUND',
-              message: 'Email not found in our system',
-            },
-          },
-          400,
-        )
+        console.log('email not found in database, creating user for', email)
+        user = createUser(trimmedEmail, userStore)
       }
 
       // Send magic link
@@ -183,7 +119,7 @@ export function createServer(
         message: 'Magic link sent successfully',
       })
     } catch (error) {
-      console.error('Login error:', error)
+      console.error('Auth request error:', error)
       return c.json(
         {
           error: {
@@ -195,6 +131,7 @@ export function createServer(
       )
     }
   })
+
 
   // POST /auth/submit-magic-link endpoint
   app.post('/auth/submit-magic-link', async (c) => {
