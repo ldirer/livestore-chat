@@ -16,24 +16,10 @@ type MagicLink = {
   usedAt: Date | null
 }
 
-type RefreshToken = {
-  id: string
-  userId: string
-  createdAt: Date
-  expiresAt: Date
-  revokedAt: Date | null
-}
-
 interface MagicLinkStore {
   createMagicLink: (email: string) => Promise<MagicLink>
   getMagicLink: (token: string) => Promise<MagicLink | undefined>
   markMagicLinkAsUsed: (token: string) => Promise<void> // possibly could be combined with "getMagicLink" into a single operation
-  
-  // Refresh token methods
-  storeRefreshToken: (tokenId: string, userId: string, expiresAt: Date) => Promise<void>
-  getRefreshToken: (tokenId: string) => Promise<RefreshToken | undefined>
-  revokeRefreshToken: (tokenId: string) => Promise<void>
-  revokeAllUserRefreshTokens: (userId: string) => Promise<void>
 }
 
 class SQLiteMagicLinkStore implements MagicLinkStore {
@@ -57,18 +43,6 @@ class SQLiteMagicLinkStore implements MagicLinkStore {
         created_at DATETIME NOT NULL,
         expires_at DATETIME NOT NULL,
         used_at DATETIME NULL
-      )
-    `)
-
-    // Create refresh tokens table if it does not exist
-    await this.db.exec(`
-      CREATE TABLE IF NOT EXISTS refresh_tokens (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        created_at DATETIME NOT NULL,
-        expires_at DATETIME NOT NULL,
-        revoked_at DATETIME NULL,
-        FOREIGN KEY (user_id) REFERENCES users(id)
       )
     `)
   }
@@ -122,51 +96,6 @@ class SQLiteMagicLinkStore implements MagicLinkStore {
     return link
   }
 
-  storeRefreshToken = async (tokenId: string, userId: string, expiresAt: Date): Promise<void> => {
-    const createdAt = new Date()
-    
-    await this.db.run(
-      'INSERT INTO refresh_tokens (id, user_id, created_at, expires_at, revoked_at) VALUES (?, ?, ?, ?, ?)',
-      tokenId,
-      userId,
-      createdAt.toISOString(),
-      expiresAt.toISOString(),
-      null
-    )
-  }
-
-  getRefreshToken = async (tokenId: string): Promise<RefreshToken | undefined> => {
-    const row = await this.db.get(
-      'SELECT id, user_id, created_at, expires_at, revoked_at FROM refresh_tokens WHERE id = ?',
-      tokenId
-    )
-    
-    if (!row) return undefined
-    
-    return {
-      id: row.id,
-      userId: row.user_id,
-      createdAt: new Date(row.created_at),
-      expiresAt: new Date(row.expires_at),
-      revokedAt: row.revoked_at ? new Date(row.revoked_at) : null
-    }
-  }
-
-  revokeRefreshToken = async (tokenId: string): Promise<void> => {
-    await this.db.run(
-      'UPDATE refresh_tokens SET revoked_at = ? WHERE id = ?',
-      new Date().toISOString(),
-      tokenId
-    )
-  }
-
-  revokeAllUserRefreshTokens = async (userId: string): Promise<void> => {
-    await this.db.run(
-      'UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL',
-      new Date().toISOString(),
-      userId
-    )
-  }
 }
 
 type MagicLinkValidation =
@@ -191,12 +120,6 @@ type URLString = `http://${string}` | `https://${string}`
 export interface MagicLinkService {
   validateMagicToken: (token: string) => Promise<MagicLinkValidation>
   createMagicLink: (email: string) => Promise<URLString>
-  
-  // Refresh token methods
-  storeRefreshToken: (tokenId: string, userId: string, expiresAt: Date) => Promise<void>
-  getRefreshToken: (tokenId: string) => Promise<RefreshToken | undefined>
-  revokeRefreshToken: (tokenId: string) => Promise<void>
-  revokeAllUserRefreshTokens: (userId: string) => Promise<void>
 }
 
 export { SQLiteMagicLinkStore }
@@ -236,20 +159,4 @@ export class DefaultMagicLinkService implements MagicLinkService {
     return `${FRONTEND_URL}/login?token=${link.id}`
   }
 
-  // Refresh token methods
-  storeRefreshToken = async (tokenId: string, userId: string, expiresAt: Date): Promise<void> => {
-    await this.db.storeRefreshToken(tokenId, userId, expiresAt)
-  }
-
-  getRefreshToken = async (tokenId: string): Promise<RefreshToken | undefined> => {
-    return await this.db.getRefreshToken(tokenId)
-  }
-
-  revokeRefreshToken = async (tokenId: string): Promise<void> => {
-    await this.db.revokeRefreshToken(tokenId)
-  }
-
-  revokeAllUserRefreshTokens = async (userId: string): Promise<void> => {
-    await this.db.revokeAllUserRefreshTokens(userId)
-  }
 }

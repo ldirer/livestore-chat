@@ -2,7 +2,7 @@ import {serve} from '@hono/node-server'
 import type {Store} from '@livestore/livestore'
 import {queryDb} from '@livestore/livestore'
 import {Hono} from 'hono'
-import {sendLoginLink, generateTokens, validateAccessToken, validateRefreshToken} from './auth'
+import {sendLoginLink, createAuthTokenStore, DefaultAuthService, type AuthService, JWT_CONFIG} from './auth'
 import type {MagicLinkService} from './magicLink.ts'
 import {createMagicLinkStore, DefaultMagicLinkService} from './magicLink'
 import type {schema as testSchema} from './schema/test'
@@ -19,10 +19,17 @@ type UserStoreType = Store<typeof userSchema>
 interface AppBindings {
   store: UserStoreType
   magicLinks: MagicLinkService
+  auth: AuthService
+}
+
+interface AuthenticatedUser {
+  id: string
+  stores: string[]
 }
 
 interface AppVariables {
-  user: any
+  user: AuthenticatedUser
+  auth: AuthService
   magicLinks: MagicLinkService
 }
 
@@ -45,6 +52,7 @@ async function createUser(email: string): typeof userTables.user.Type {
 // JWT Authentication middleware
 const jwtAuth = async (c: any, next: any) => {
   const accessToken = getCookie(c, 'accessToken')
+  const auth = c.get('auth')
   
   if (!accessToken) {
     return c.json(
@@ -58,7 +66,7 @@ const jwtAuth = async (c: any, next: any) => {
     )
   }
 
-  const payload = await validateAccessToken(accessToken)
+  const payload = await auth.validateAccessToken(accessToken)
   if (!payload) {
     return c.json(
       {
@@ -71,8 +79,12 @@ const jwtAuth = async (c: any, next: any) => {
     )
   }
 
-  // Add user payload to context
-  c.set('user', payload)
+  // Transform payload to user object that endpoints can use
+  const user: AuthenticatedUser = {
+    id: payload.sub,
+    stores: payload.stores,
+  }
+  c.set('user', user)
   await next()
 }
 
@@ -80,12 +92,14 @@ export function createServer(
   userStore: UserStoreType,
   testStore: TestStoreType,
   magicLinks: MagicLinkService,
+  auth: AuthService,
 ) {
   const app = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>()
   
-  // Set magic links service in context
+  // Set services in context
   app.use('*', async (c, next) => {
     c.set('magicLinks', magicLinks)
+    c.set('auth', auth)
     await next()
   })
 
@@ -211,25 +225,24 @@ export function createServer(
       }
 
       // Generate JWT tokens
-      const tokens = await generateTokens(user)
-
-      // Store refresh token in database
-      const refreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
-      await magicLinks.storeRefreshToken(tokens.refreshTokenId, user.id, refreshTokenExpiry)
+      const auth = c.get('auth')
+      const userStores = [`user_store_${user.id}`] // Default user store, will be enhanced later
+      const tokens = await auth.generateTokens(user, userStores)
 
       // Set HTTP-only cookies
+      // We don't want cookies expiring before tokens, so a stale token can be detected as 'your authentication expired'
       setCookie(c, 'accessToken', tokens.accessToken, {
         httpOnly: true,
         secure: true,
         sameSite: 'Lax',
-        maxAge: 15 * 60, // 15 minutes
+        maxAge: Math.floor(JWT_CONFIG.ACCESS_TOKEN_EXPIRES_IN_SECONDS * 1.5),
       })
 
       setCookie(c, 'refreshToken', tokens.refreshToken, {
         httpOnly: true,
         secure: true,
         sameSite: 'Lax',
-        maxAge: 7 * 24 * 60 * 60, // 7 days
+        maxAge: Math.floor(JWT_CONFIG.REFRESH_TOKEN_EXPIRES_IN_SECONDS * 1.5),
       })
 
       return c.json({
@@ -268,75 +281,42 @@ export function createServer(
         )
       }
 
-      // Validate refresh token JWT
-      const payload = await validateRefreshToken(refreshToken)
-      if (!payload) {
+      const auth = c.get('auth')
+      const result = await auth.refreshTokens(refreshToken)
+
+      if (!result.success) {
+        const errorMessages = {
+          token_not_found: 'Refresh token not found',
+          token_expired: 'Refresh token has expired',
+          token_revoked: 'Refresh token has been revoked',
+        }
+
+        const errorResult = result as { success: false; error: 'token_not_found' | 'token_expired' | 'token_revoked' }
         return c.json(
           {
             error: {
-              code: 'REFRESH_TOKEN_INVALID',
-              message: 'Invalid refresh token',
+              code: errorResult.error.toUpperCase(),
+              message: errorMessages[errorResult.error],
             },
           },
           401,
         )
       }
-
-      // Check if refresh token exists in database and is not revoked
-      const storedToken = await magicLinks.getRefreshToken(payload.tokenId)
-      if (!storedToken || storedToken.revokedAt || new Date() > storedToken.expiresAt) {
-        return c.json(
-          {
-            error: {
-              code: 'REFRESH_TOKEN_REVOKED',
-              message: 'Refresh token has been revoked or expired',
-            },
-          },
-          401,
-        )
-      }
-
-      // Get user
-      const users = userStore.query(
-        queryDb(userTables.user.where({ id: payload.sub })),
-      )
-      const user = users[0] as typeof userTables.user.Type
-
-      if (!user) {
-        return c.json(
-          {
-            error: {
-              code: 'USER_NOT_FOUND',
-              message: 'User not found',
-            },
-          },
-          404,
-        )
-      }
-
-      // Revoke old refresh token
-      await magicLinks.revokeRefreshToken(payload.tokenId)
-
-      // Generate new tokens
-      const tokens = await generateTokens(user)
-
-      // Store new refresh token in database
-      const refreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
-      await magicLinks.storeRefreshToken(tokens.refreshTokenId, user.id, refreshTokenExpiry)
 
       // Set new HTTP-only cookies
-      setCookie(c, 'accessToken', tokens.accessToken, {
+      // We don't want cookies expiring before tokens, so a stale token can be detected as 'your authentication expired'
+      setCookie(c, 'accessToken', result.accessToken, {
         httpOnly: true,
         secure: true,
         sameSite: 'Lax',
-        maxAge: 15 * 60, // 15 minutes
+        maxAge: Math.floor(JWT_CONFIG.ACCESS_TOKEN_EXPIRES_IN_SECONDS * 1.5),
       })
 
-      setCookie(c, 'refreshToken', tokens.refreshToken, {
+      setCookie(c, 'refreshToken', result.refreshToken, {
         httpOnly: true,
         secure: true,
         sameSite: 'Lax',
-        maxAge: 7 * 24 * 60 * 60, // 7 days
+        maxAge: Math.floor(JWT_CONFIG.REFRESH_TOKEN_EXPIRES_IN_SECONDS * 1.5),
       })
 
       return c.json({
@@ -361,14 +341,9 @@ export function createServer(
   app.post('/auth/logout', async (c) => {
     try {
       const refreshToken = getCookie(c, 'refreshToken')
+      const auth: AuthService = c.get('auth')
 
-      if (refreshToken) {
-        // Try to revoke the refresh token from database
-        const payload = await validateRefreshToken(refreshToken)
-        if (payload) {
-          await magicLinks.revokeRefreshToken(payload.tokenId)
-        }
-      }
+      await auth.logout(refreshToken)
 
       // Clear both cookies
       setCookie(c, 'accessToken', '', {
@@ -407,11 +382,11 @@ export function createServer(
   // Returns current user info and their stores
   app.get('/auth/me', jwtAuth, async (c) => {
     try {
-      const userPayload = c.get('user')
+      const authenticatedUser = c.get('user')
       
       // Get user from database
       const users = userStore.query(
-        queryDb(userTables.user.where({ id: userPayload.sub })),
+        queryDb(userTables.user.where({ id: authenticatedUser.id })),
       )
       const user = users[0] as typeof userTables.user.Type | undefined
 
@@ -430,7 +405,7 @@ export function createServer(
       return c.json({
         success: true,
         user,
-        stores: userPayload.stores,
+        stores: authenticatedUser.stores,
       })
     } catch (error) {
       console.error('Auth me error:', error)
@@ -458,10 +433,15 @@ export async function startServer(
   const magicLinkStore = await createMagicLinkStore()
   const magicLinks = new DefaultMagicLinkService(magicLinkStore)
   
+  // Initialize auth service
+  const authTokenStore = await createAuthTokenStore()
+  const auth = new DefaultAuthService(authTokenStore)
+  
   const app = createServer(
     userStore || ({} as UserStoreType),
     testStore || ({} as TestStoreType),
     magicLinks,
+    auth,
   )
 
   const server = serve(

@@ -2,88 +2,209 @@ import type { MagicLinkService } from './magicLink.ts'
 import type { tables as userTables } from './schema/user.ts'
 import { sign, verify } from 'hono/jwt'
 import { randomUUID } from 'node:crypto'
+import * as sqlite3 from 'sqlite3'
+import { open, Database } from 'sqlite'
 
 type UserType = typeof userTables.user.Type
 
-const JWT_CONFIG = {
+export const JWT_CONFIG = {
   ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET || 'your-access-token-secret-key',
-  REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET || 'your-refresh-token-secret-key',
-  ACCESS_TOKEN_EXPIRES_IN: 15 * 60, // 15 minutes in seconds
-  REFRESH_TOKEN_EXPIRES_IN: 7 * 24 * 60 * 60, // 7 days in seconds
+  ACCESS_TOKEN_EXPIRES_IN_SECONDS: 15 * 60, // 15 minutes in seconds
+  REFRESH_TOKEN_EXPIRES_IN_SECONDS: 7 * 24 * 60 * 60, // 7 days in seconds
+  DB_PATH: './auth-tokens.db',
 }
 
 export interface AccessTokenPayload {
   sub: string // user ID
-  email: string
-  stores: Array<{ type: string; id: string }>
+  stores: string[]
   iat: number
   exp: number
   [key: string]: any
 }
 
-export interface RefreshTokenPayload {
-  sub: string // user ID
-  tokenId: string // unique token ID for revocation
-  iat: number
-  exp: number
-  [key: string]: any
+type RefreshToken = {
+  id: string
+  userId: string
+  createdAt: Date
+  expiresAt: Date
+  revokedAt: Date | null
 }
 
-export interface TokenPair {
-  accessToken: string
-  refreshToken: string
-  refreshTokenId: string
+interface AuthTokenStore {
+  createRefreshToken: (userId: string) => Promise<string>
+  getRefreshToken: (tokenId: string) => Promise<RefreshToken | undefined>
+  revokeRefreshToken: (tokenId: string) => Promise<void>
+  revokeAllUserRefreshTokens: (userId: string) => Promise<void>
 }
 
-export async function generateTokens(user: UserType): Promise<TokenPair> {
-  const now = Math.floor(Date.now() / 1000)
-  const refreshTokenId = randomUUID()
+class SQLiteAuthTokenStore implements AuthTokenStore {
+  private db!: Database
 
-  // Generate access token with user stores
-  const accessTokenPayload: AccessTokenPayload = {
-    sub: user.id,
-    email: user.email,
-    stores: [
-      { type: 'user', id: `user_store_${user.id}` },
-      // Add other stores based on user permissions
-    ],
-    iat: now,
-    exp: now + JWT_CONFIG.ACCESS_TOKEN_EXPIRES_IN,
+  constructor() {
+    // Constructor will be async initialized via init() method
   }
 
-  // Generate refresh token
-  const refreshTokenPayload: RefreshTokenPayload = {
-    sub: user.id,
-    tokenId: refreshTokenId,
-    iat: now,
-    exp: now + JWT_CONFIG.REFRESH_TOKEN_EXPIRES_IN,
+  async init() {
+    this.db = await open({
+      filename: JWT_CONFIG.DB_PATH,
+      driver: sqlite3.Database
+    })
+
+    // Create refresh tokens table if it does not exist
+    await this.db.exec(`
+      CREATE TABLE IF NOT EXISTS refresh_tokens (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        created_at DATETIME NOT NULL,
+        expires_at DATETIME NOT NULL,
+        revoked_at DATETIME NULL
+      )
+    `)
   }
 
-  const accessToken = await sign(accessTokenPayload, JWT_CONFIG.ACCESS_TOKEN_SECRET)
-  const refreshToken = await sign(refreshTokenPayload, JWT_CONFIG.REFRESH_TOKEN_SECRET)
+  createRefreshToken = async (userId: string): Promise<string> => {
+    const tokenId = randomUUID()
+    const createdAt = new Date()
+    const expiresAt = new Date(createdAt.getTime() + JWT_CONFIG.REFRESH_TOKEN_EXPIRES_IN_SECONDS * 1000)
+    
+    await this.db.run(
+      'INSERT INTO refresh_tokens (id, user_id, created_at, expires_at, revoked_at) VALUES (?, ?, ?, ?, ?)',
+      tokenId,
+      userId,
+      createdAt.toISOString(),
+      expiresAt.toISOString(),
+      null
+    )
+    
+    return tokenId
+  }
 
-  return {
-    accessToken,
-    refreshToken,
-    refreshTokenId,
+  getRefreshToken = async (tokenId: string): Promise<RefreshToken | undefined> => {
+    const row = await this.db.get(
+      'SELECT id, user_id, created_at, expires_at, revoked_at FROM refresh_tokens WHERE id = ?',
+      tokenId
+    )
+    
+    if (!row) return undefined
+    
+    return {
+      id: row.id,
+      userId: row.user_id,
+      createdAt: new Date(row.created_at),
+      expiresAt: new Date(row.expires_at),
+      revokedAt: row.revoked_at ? new Date(row.revoked_at) : null
+    }
+  }
+
+  revokeRefreshToken = async (tokenId: string): Promise<void> => {
+    await this.db.run(
+      'UPDATE refresh_tokens SET revoked_at = ? WHERE id = ?',
+      new Date().toISOString(),
+      tokenId
+    )
+  }
+
+  revokeAllUserRefreshTokens = async (userId: string): Promise<void> => {
+    await this.db.run(
+      'UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL',
+      new Date().toISOString(),
+      userId
+    )
   }
 }
 
-export async function validateAccessToken(token: string): Promise<AccessTokenPayload | null> {
-  try {
-    const payload = await verify(token, JWT_CONFIG.ACCESS_TOKEN_SECRET)
-    return payload as unknown as AccessTokenPayload
-  } catch (error) {
-    return null
-  }
+export type RefreshTokenValidationResult = 
+  | { success: true; accessToken: string; refreshToken: string }
+  | { success: false; error: 'token_not_found' | 'token_expired' | 'token_revoked' }
+
+export interface AuthService {
+  generateTokens: (user: UserType, stores: string[]) => Promise<{ accessToken: string; refreshToken: string }>
+  validateAccessToken: (token: string) => Promise<AccessTokenPayload | null>
+  refreshTokens: (refreshToken: string) => Promise<RefreshTokenValidationResult>
+  logout: (refreshToken: string) => Promise<void>
 }
 
-export async function validateRefreshToken(token: string): Promise<RefreshTokenPayload | null> {
-  try {
-    const payload = await verify(token, JWT_CONFIG.REFRESH_TOKEN_SECRET)
-    return payload as unknown as RefreshTokenPayload
-  } catch (error) {
-    return null
+export async function createAuthTokenStore(): Promise<SQLiteAuthTokenStore> {
+  const store = new SQLiteAuthTokenStore()
+  await store.init()
+  return store
+}
+
+export class DefaultAuthService implements AuthService {
+  constructor(private tokenStore: AuthTokenStore) {}
+
+  generateTokens = async (user: UserType, stores: string[]): Promise<{ accessToken: string; refreshToken: string }> => {
+    const now = Math.floor(Date.now() / 1000)
+
+    // Generate access token with user stores
+    const accessTokenPayload: AccessTokenPayload = {
+      sub: user.id,
+      stores,
+      iat: now,
+      exp: now + JWT_CONFIG.ACCESS_TOKEN_EXPIRES_IN_SECONDS,
+    }
+
+    const accessToken = await sign(accessTokenPayload, JWT_CONFIG.ACCESS_TOKEN_SECRET)
+    
+    // Generate opaque refresh token
+    const refreshToken = await this.tokenStore.createRefreshToken(user.id)
+
+    return {
+      accessToken,
+      refreshToken,
+    }
+  }
+
+  validateAccessToken = async (token: string): Promise<AccessTokenPayload | null> => {
+    try {
+      const payload = await verify(token, JWT_CONFIG.ACCESS_TOKEN_SECRET)
+      return payload as unknown as AccessTokenPayload
+    } catch (error) {
+      return null
+    }
+  }
+
+  refreshTokens = async (refreshToken: string): Promise<RefreshTokenValidationResult> => {
+    // Check if refresh token exists in database
+    const storedToken = await this.tokenStore.getRefreshToken(refreshToken)
+    if (!storedToken) {
+      return { success: false, error: 'token_not_found' }
+    }
+
+    if (storedToken.revokedAt) {
+      return { success: false, error: 'token_revoked' }
+    }
+
+    if (new Date() > storedToken.expiresAt) {
+      return { success: false, error: 'token_expired' }
+    }
+
+    // Revoke old refresh token
+    await this.tokenStore.revokeRefreshToken(refreshToken)
+
+    // Generate new tokens for the user
+    const now = Math.floor(Date.now() / 1000)
+    const accessTokenPayload: AccessTokenPayload = {
+      sub: storedToken.userId,
+      stores: [`user_store_${storedToken.userId}`], // Default user store, will be enhanced later
+      iat: now,
+      exp: now + JWT_CONFIG.ACCESS_TOKEN_EXPIRES_IN_SECONDS,
+    }
+
+    const accessToken = await sign(accessTokenPayload, JWT_CONFIG.ACCESS_TOKEN_SECRET)
+    const newRefreshToken = await this.tokenStore.createRefreshToken(storedToken.userId)
+
+    return {
+      success: true,
+      accessToken,
+      refreshToken: newRefreshToken,
+    }
+  }
+
+  logout = async (refreshToken: string): Promise<void> => {
+    if (refreshToken) {
+      await this.tokenStore.revokeRefreshToken(refreshToken)
+    }
   }
 }
 
