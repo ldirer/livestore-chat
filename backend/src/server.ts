@@ -34,7 +34,6 @@ interface AppVariables {
 }
 
 
-// Stub function to create a new user
 async function createUser(email: string): typeof userTables.user.Type {
   const newUser = {
     id: randomUUID(),
@@ -53,7 +52,7 @@ async function createUser(email: string): typeof userTables.user.Type {
 const jwtAuth = async (c: any, next: any) => {
   const accessToken = getCookie(c, 'accessToken')
   const auth: AuthService = c.get('auth')
-  
+
   if (!accessToken) {
     return c.json(
       {
@@ -95,7 +94,7 @@ export function createServer(
   auth: AuthService,
 ) {
   const app = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>()
-  
+
   // Global error handler
   app.onError((err, c) => {
     console.error('Server error:', err)
@@ -109,7 +108,7 @@ export function createServer(
       500
     )
   })
-  
+
   // Set services in context
   app.use('*', async (c, next) => {
     c.set('magicLinks', magicLinks)
@@ -117,13 +116,10 @@ export function createServer(
     await next()
   })
 
-  // Health check endpoint
-  app.get('/', (c) => {
+  // debug helper endpoint
+  app.get('/users', (c) => {
     const users = userStore.query(queryDb(userTables.user))
     console.log('users', users)
-
-    // userStore.manualRefresh()
-    // userStore.commit(userEvents.userEmailAttached({privateId: '123', username: 'user1', email: '<EMAIL>'}))
 
     return c.text('ok')
   })
@@ -153,7 +149,7 @@ export function createServer(
     }
 
     const trimmedEmail = email.trim()
-    
+
     // Look up user by email
     const users = userStore.query(
       queryDb(userTables.user.where({ email: trimmedEmail })),
@@ -346,7 +342,7 @@ export function createServer(
   // Returns current user info and their stores
   app.get('/auth/me', jwtAuth, async (c) => {
     const authenticatedUser: AuthenticatedUser = c.get('user')
-    
+
     // Get user from database
     const users = userStore.query(
       queryDb(userTables.user.where({ id: authenticatedUser.id })),
@@ -383,11 +379,11 @@ export async function startServer(
   // Initialize magic link service
   const magicLinkStore = await createMagicLinkStore()
   const magicLinks = new DefaultMagicLinkService(magicLinkStore)
-  
+
   // Initialize auth service
   const authTokenStore = await createAuthTokenStore()
   const auth = new DefaultAuthService(authTokenStore)
-  
+
   const app = createServer(
     userStore || ({} as UserStoreType),
     testStore || ({} as TestStoreType),

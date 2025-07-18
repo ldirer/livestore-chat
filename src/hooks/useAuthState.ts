@@ -12,7 +12,7 @@ export type UserInfo = {
   username: string
 }
 
-export type UseCurrentUserStoresState =
+export type UseAuthState =
   | {
       user: UserInfo | null
       stores: StoreInfo[]
@@ -33,10 +33,10 @@ export type UseCurrentUserStoresState =
     }
 
 /**
- * Hook to get current user info and their stores from /auth/me endpoint
+ * Hook to get current user info from /auth/me endpoint
  */
-export const useCurrentUserStores = (): UseCurrentUserStoresState => {
-  const [state, setState] = useState<UseCurrentUserStoresState>({
+export const useAuthState = (): UseAuthState => {
+  const [state, setState] = useState<UseAuthState>({
     user: null,
     stores: [],
     loading: true,

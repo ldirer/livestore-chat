@@ -1,8 +1,7 @@
 import type React from 'react'
-import { useCurrentUserStores } from '../hooks/useCurrentUserStores.ts'
+import { useAuthenticatedUserInfo } from './AuthGuard.tsx'
 
 export const MainSection: React.FC = () => {
-  const authState = useCurrentUserStores()
-  return <div>Hello {authState.user?.username}!</div>
-  // return <ChatView user={user} />
+  const { user } = useAuthenticatedUserInfo()
+  return <div>Hello {user.username}!</div>
 }
