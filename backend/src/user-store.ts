@@ -15,16 +15,30 @@ const adapter = makeAdapter({
   // devtools: { schemaPath: new URL('./schema.ts', import.meta.url) },
 })
 
-export async function createUserStore() {
+export async function createUserAggregateStore() {
   const store = await createStorePromise({
     schema: userSchema,
     adapter,
     storeId: 'serveronly',
     syncPayload: { authToken: 'servertoken' },
     onBootStatus(status) {
-      console.log(`User store boot stage: ${status.stage}`)
+      console.log(`User aggregate store boot stage: ${status.stage}`)
     },
   })
   console.dir(store)
+  return store
+}
+
+
+export async function createUserStore(userId: string) {
+  const store = await createStorePromise({
+    schema: userSchema,
+    adapter,
+    storeId: `user_${userId}`,
+    syncPayload: { authToken: 'servertoken' },
+    onBootStatus(status) {
+      console.log(`User store boot stage: ${status.stage}`)
+    },
+  })
   return store
 }

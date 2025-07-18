@@ -1,11 +1,11 @@
 import { startServer } from './server'
 import { createTestStore } from './test-store'
-import { createUserStore } from './user-store'
+import { createUserAggregateStore } from './user-store'
 
 async function main() {
   console.log('Initializing server...')
 
-  const userStore = await createUserStore()
+  const userStore = await createUserAggregateStore()
   const testStore = await createTestStore()
   // const userStore = undefined
   // const testStore = undefined

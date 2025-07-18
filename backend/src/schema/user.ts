@@ -5,18 +5,9 @@ export const events = {
     name: 'v1.UserProfileCreated',
     schema: Schema.Struct({
       id: Schema.String,
-      privateId: Schema.String,
-      username: Schema.String,
-      createdAt: Schema.Date,
-    }),
-  }),
-  userEmailAttached: Events.synced({
-    name: 'v1.UserEmailAttached',
-    schema: Schema.Struct({
-      privateId: Schema.String,
-      // this is here only to help with debugging (identifying event source)
       username: Schema.String,
       email: Schema.String,
+      createdAt: Schema.Date,
     }),
   }),
   // if this isn't included, the store crashes on boot if the initial sync sees these events. All events need to be defined.
@@ -31,7 +22,6 @@ const userTable = State.SQLite.table({
   name: 'userprofile',
   columns: {
     id: State.SQLite.text({ primaryKey: true }),
-    privateId: State.SQLite.text(),
     username: State.SQLite.text(),
     email: State.SQLite.text(),
     createdAt: State.SQLite.integer({ schema: Schema.DateFromNumber }),
@@ -49,17 +39,14 @@ const testTable = State.SQLite.table({
 export const tables = { user: userTable, test: testTable }
 
 const materializers = State.SQLite.materializers(events, {
-  'v1.UserProfileCreated': ({ id, privateId, username, createdAt }) =>
+  'v1.UserProfileCreated': ({ id, username, email, createdAt }) =>
     tables.user.insert({
       id,
-      privateId,
       username,
       createdAt,
       updatedAt: createdAt,
-      email: '',
+      email,
     }),
-  'v1.UserEmailAttached': ({ privateId, email }) =>
-    tables.user.where({ privateId }).update({ email }),
   'v1.TestEvent': () => {
     console.log('ignoring test event in global user store')
     // undefined or 'noop' makes livestore crash, it wants to run SQL.

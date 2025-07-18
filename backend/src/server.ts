@@ -9,6 +9,8 @@ import type {schema as testSchema} from './schema/test'
 import {tables as testTables} from './schema/test'
 import type {schema as userSchema} from './schema/user'
 import {events as userEvents, tables as userTables} from './schema/user'
+import {randomUUID} from "node:crypto";
+import {createUserStore} from "./user-store";
 
 type TestStoreType = Store<typeof testSchema>
 type UserStoreType = Store<typeof userSchema>
@@ -18,33 +20,19 @@ interface AppBindings {
   magicLinks: MagicLinkService
 }
 
-// can safely be ignored for now
-function sendEventToUserSpecificStore(
-  event: ReturnType<(typeof userEvents)[keyof typeof userEvents]>,
-) {
-  console.log('fake sending event', event)
-}
 
 // Stub function to create a new user
-function createUser(email: string, userStore: UserStoreType): typeof userTables.user.Type {
-  const privateId = `user_${Date.now()}_${Math.random().toString(36).substring(2)}`
-  const username = email.split('@')[0] // Simple username from email
-  
+async function createUser(email: string): typeof userTables.user.Type {
   const newUser = {
-    privateId,
-    username,
+    id: randomUUID(),
+    username: email.split('@')[0],  // Simple username from email
     email,
+    createdAt: new Date(),
   }
-  
-  // This would normally commit to the store, but for now we'll stub it
-  sendEventToUserSpecificStore(
-    userEvents.userEmailAttached({
-      privateId,
-      username,
-      email,
-    })
-  )
-  
+
+  const userStore = await createUserStore(newUser.id)
+  userStore.commit(userEvents.userProfileCreated(newUser))
+
   return newUser
 }
 
@@ -108,7 +96,7 @@ export function createServer(
       // If user doesn't exist, create them
       if (!user) {
         console.log('email not found in database, creating user for', email)
-        user = createUser(trimmedEmail, userStore)
+        user = await createUser(trimmedEmail)
       }
 
       // Send magic link
@@ -186,15 +174,27 @@ export function createServer(
   // GET /auth/me endpoint
   // Returns current user info and their stores
   app.get('/auth/me', async (c) => {
+    const users = userStore.query(
+      queryDb(userTables.user.where({ email: 'laurent.direr@gmail.com' })),
+    )
+    let user = users[0] as typeof userTables.user.Type | undefined
+    if (!user) {
+      console.error('Auth me error:', error)
+      return c.json(
+        {
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'An internal server error occurred',
+          },
+        },
+        500,
+      )
+    }
     try {
       // Stub response - assume authentication is handled elsewhere
       return c.json({
         success: true,
-        user: {
-          id: 'user_123',
-          email: 'test@example.com',
-          username: 'test',
-        },
+        user,
         stores: [
           { type: 'user', id: 'user_store_123' },
           { type: 'workspace', id: 'workspace_abc' },
