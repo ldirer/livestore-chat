@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { fetchWithAuth } from '../api.ts'
 
 export type StoreInfo = {
   type: string
@@ -47,9 +48,7 @@ export const useCurrentUserStores = (): UseCurrentUserStoresState => {
       try {
         setState((prev) => ({ ...prev, loading: true, error: null }))
 
-        const response = await fetch('/auth/me', {
-          method: 'GET',
-        })
+        const response = await fetchWithAuth('/auth/me')
 
         if (response.ok) {
           const data = await response.json()
@@ -74,7 +73,7 @@ export const useCurrentUserStores = (): UseCurrentUserStoresState => {
           user: null,
           stores: [],
           loading: false,
-          error: 'Network error: Unable to fetch user information',
+          error: 'error: Unable to fetch user information',
         })
       }
     }
