@@ -96,6 +96,20 @@ export function createServer(
 ) {
   const app = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>()
   
+  // Global error handler
+  app.onError((err, c) => {
+    console.error('Server error:', err)
+    return c.json(
+      {
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'An internal server error occurred',
+        },
+      },
+      500
+    )
+  })
+  
   // Set services in context
   app.use('*', async (c, next) => {
     c.set('magicLinks', magicLinks)
@@ -123,302 +137,237 @@ export function createServer(
   // POST /auth/request-magic-link endpoint
   // Unified login/signup flow - creates user if doesn't exist, sends magic link either way
   app.post('/auth/request-magic-link', async (c) => {
-    try {
-      const body = await c.req.json()
-      const { email } = body
+    const body = await c.req.json()
+    const { email } = body
 
-      if (!email) {
-        return c.json(
-          {
-            error: {
-              code: 'VALIDATION_ERROR',
-              message: 'Missing required field: email',
-            },
-          },
-          400,
-        )
-      }
-
-      const trimmedEmail = email.trim()
-      
-      // Look up user by email
-      const users = userStore.query(
-        queryDb(userTables.user.where({ email: trimmedEmail })),
-      )
-      let user = users[0] as typeof userTables.user.Type | undefined
-
-      // If user doesn't exist, create them
-      if (!user) {
-        console.log('email not found in database, creating user for', email)
-        user = await createUser(trimmedEmail)
-      }
-
-      // Send magic link
-      await sendLoginLink(magicLinks, user)
-
-      return c.json({
-        success: true,
-        message: 'Magic link sent successfully',
-      })
-    } catch (error) {
-      console.error('Auth request error:', error)
+    if (!email) {
       return c.json(
         {
           error: {
-            code: 'INTERNAL_ERROR',
-            message: 'An internal server error occurred',
+            code: 'VALIDATION_ERROR',
+            message: 'Missing required field: email',
           },
         },
-        500,
+        400,
       )
     }
+
+    const trimmedEmail = email.trim()
+    
+    // Look up user by email
+    const users = userStore.query(
+      queryDb(userTables.user.where({ email: trimmedEmail })),
+    )
+    let user = users[0] as typeof userTables.user.Type | undefined
+
+    // If user doesn't exist, create them
+    if (!user) {
+      console.log('email not found in database, creating user for', email)
+      user = await createUser(trimmedEmail)
+    }
+
+    // Send magic link
+    await sendLoginLink(magicLinks, user)
+
+    return c.json({
+      success: true,
+      message: 'Magic link sent successfully',
+    })
   })
 
 
   // POST /auth/submit-magic-link endpoint
   app.post('/auth/submit-magic-link', async (c) => {
-    try {
-      const body = await c.req.json()
-      const { token } = body
+    const body = await c.req.json()
+    const { token } = body
 
-      if (!token) {
-        return c.json(
-          {
-            error: {
-              code: 'VALIDATION_ERROR',
-              message: 'Missing required field: token',
-            },
-          },
-          400,
-        )
-      }
-
-      const validation = await magicLinks.validateMagicToken(token)
-
-      if (validation.status === 'invalid') {
-        return c.json(
-          {
-            error: {
-              code: validation.reason.toUpperCase(),
-            },
-          },
-          400,
-        )
-      }
-
-      // Get user by email
-      const users = userStore.query(
-        queryDb(userTables.user.where({ email: validation.email })),
-      )
-      const user = users[0] as typeof userTables.user.Type
-
-      if (!user) {
-        return c.json(
-          {
-            error: {
-              code: 'USER_NOT_FOUND',
-              message: 'User not found',
-            },
-          },
-          404,
-        )
-      }
-
-      // Generate JWT tokens
-      const auth = c.get('auth')
-      const userStores = [`user_store_${user.id}`] // Default user store, will be enhanced later
-      const tokens = await auth.generateTokens(user, userStores)
-
-      // Set HTTP-only cookies
-      // We don't want cookies expiring before tokens, so a stale token can be detected as 'your authentication expired'
-      setCookie(c, 'accessToken', tokens.accessToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'Lax',
-        maxAge: Math.floor(JWT_CONFIG.ACCESS_TOKEN_EXPIRES_IN_SECONDS * 1.5),
-      })
-
-      setCookie(c, 'refreshToken', tokens.refreshToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'Lax',
-        maxAge: Math.floor(JWT_CONFIG.REFRESH_TOKEN_EXPIRES_IN_SECONDS * 1.5),
-      })
-
-      return c.json({
-        success: true,
-        email: validation.email,
-        message: 'Magic link validated successfully',
-      })
-    } catch (error) {
-      console.error('Magic link validation error:', error)
+    if (!token) {
       return c.json(
         {
           error: {
-            code: 'INTERNAL_ERROR',
-            message: 'An internal server error occurred',
+            code: 'VALIDATION_ERROR',
+            message: 'Missing required field: token',
           },
         },
-        500,
+        400,
       )
     }
+
+    const validation = await magicLinks.validateMagicToken(token)
+
+    if (validation.status === 'invalid') {
+      return c.json(
+        {
+          error: {
+            code: validation.reason.toUpperCase(),
+          },
+        },
+        400,
+      )
+    }
+
+    // Get user by email
+    const users = userStore.query(
+      queryDb(userTables.user.where({ email: validation.email })),
+    )
+    const user = users[0] as typeof userTables.user.Type
+
+    if (!user) {
+      return c.json(
+        {
+          error: {
+            code: 'USER_NOT_FOUND',
+            message: 'User not found',
+          },
+        },
+        404,
+      )
+    }
+
+    // Generate JWT tokens
+    const auth = c.get('auth')
+    const userStores = [`user_store_${user.id}`] // Default user store, will be enhanced later
+    const tokens = await auth.generateTokens(user, userStores)
+
+    // Set HTTP-only cookies
+    // We don't want cookies expiring before tokens, so a stale token can be detected as 'your authentication expired'
+    setCookie(c, 'accessToken', tokens.accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+      maxAge: Math.floor(JWT_CONFIG.ACCESS_TOKEN_EXPIRES_IN_SECONDS * 1.5),
+    })
+
+    setCookie(c, 'refreshToken', tokens.refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+      maxAge: Math.floor(JWT_CONFIG.REFRESH_TOKEN_EXPIRES_IN_SECONDS * 1.5),
+    })
+
+    return c.json({
+      success: true,
+      email: validation.email,
+      message: 'Magic link validated successfully',
+    })
   })
 
   // POST /auth/refresh endpoint
   app.post('/auth/refresh', async (c) => {
-    try {
-      const refreshToken = getCookie(c, 'refreshToken')
+    const refreshToken = getCookie(c, 'refreshToken')
 
-      if (!refreshToken) {
-        return c.json(
-          {
-            error: {
-              code: 'REFRESH_TOKEN_MISSING',
-              message: 'Refresh token not found',
-            },
-          },
-          401,
-        )
-      }
-
-      const auth = c.get('auth')
-      const result = await auth.refreshTokens(refreshToken)
-
-      if (!result.success) {
-        const errorMessages = {
-          token_not_found: 'Refresh token not found',
-          token_expired: 'Refresh token has expired',
-          token_revoked: 'Refresh token has been revoked',
-        }
-
-        const errorResult = result as { success: false; error: 'token_not_found' | 'token_expired' | 'token_revoked' }
-        return c.json(
-          {
-            error: {
-              code: errorResult.error.toUpperCase(),
-              message: errorMessages[errorResult.error],
-            },
-          },
-          401,
-        )
-      }
-
-      // Set new HTTP-only cookies
-      // We don't want cookies expiring before tokens, so a stale token can be detected as 'your authentication expired'
-      setCookie(c, 'accessToken', result.accessToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'Lax',
-        maxAge: Math.floor(JWT_CONFIG.ACCESS_TOKEN_EXPIRES_IN_SECONDS * 1.5),
-      })
-
-      setCookie(c, 'refreshToken', result.refreshToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'Lax',
-        maxAge: Math.floor(JWT_CONFIG.REFRESH_TOKEN_EXPIRES_IN_SECONDS * 1.5),
-      })
-
-      return c.json({
-        success: true,
-        message: 'Tokens refreshed successfully',
-      })
-    } catch (error) {
-      console.error('Refresh token error:', error)
+    if (!refreshToken) {
       return c.json(
         {
           error: {
-            code: 'INTERNAL_ERROR',
-            message: 'An internal server error occurred',
+            code: 'REFRESH_TOKEN_MISSING',
+            message: 'Refresh token not found',
           },
         },
-        500,
+        401,
       )
     }
+
+    const auth = c.get('auth')
+    const result = await auth.refreshTokens(refreshToken)
+
+    if (!result.success) {
+      const errorMessages = {
+        token_not_found: 'Refresh token not found',
+        token_expired: 'Refresh token has expired',
+        token_revoked: 'Refresh token has been revoked',
+      }
+
+      const errorResult = result as { success: false; error: 'token_not_found' | 'token_expired' | 'token_revoked' }
+      return c.json(
+        {
+          error: {
+            code: errorResult.error.toUpperCase(),
+            message: errorMessages[errorResult.error],
+          },
+        },
+        401,
+      )
+    }
+
+    // Set new HTTP-only cookies
+    // We don't want cookies expiring before tokens, so a stale token can be detected as 'your authentication expired'
+    setCookie(c, 'accessToken', result.accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+      maxAge: Math.floor(JWT_CONFIG.ACCESS_TOKEN_EXPIRES_IN_SECONDS * 1.5),
+    })
+
+    setCookie(c, 'refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+      maxAge: Math.floor(JWT_CONFIG.REFRESH_TOKEN_EXPIRES_IN_SECONDS * 1.5),
+    })
+
+    return c.json({
+      success: true,
+      message: 'Tokens refreshed successfully',
+    })
   })
 
   // POST /auth/logout endpoint
   app.post('/auth/logout', async (c) => {
-    try {
-      const refreshToken = getCookie(c, 'refreshToken')
-      const auth: AuthService = c.get('auth')
+    const refreshToken = getCookie(c, 'refreshToken')
+    const auth: AuthService = c.get('auth')
 
-      await auth.logout(refreshToken)
+    await auth.logout(refreshToken)
 
-      // Clear both cookies
-      setCookie(c, 'accessToken', '', {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'Lax',
-        maxAge: 0, // Expire immediately
-      })
+    // Clear both cookies
+    setCookie(c, 'accessToken', '', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+      maxAge: 0, // Expire immediately
+    })
 
-      setCookie(c, 'refreshToken', '', {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'Lax',
-        maxAge: 0, // Expire immediately
-      })
+    setCookie(c, 'refreshToken', '', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+      maxAge: 0, // Expire immediately
+    })
 
-      return c.json({
-        success: true,
-        message: 'Logged out successfully',
-      })
-    } catch (error) {
-      console.error('Logout error:', error)
-      return c.json(
-        {
-          error: {
-            code: 'INTERNAL_ERROR',
-            message: 'An internal server error occurred',
-          },
-        },
-        500,
-      )
-    }
+    return c.json({
+      success: true,
+      message: 'Logged out successfully',
+    })
   })
 
   // GET /auth/me endpoint
   // Returns current user info and their stores
   app.get('/auth/me', jwtAuth, async (c) => {
-    try {
-      const authenticatedUser = c.get('user')
-      
-      // Get user from database
-      const users = userStore.query(
-        queryDb(userTables.user.where({ id: authenticatedUser.id })),
-      )
-      const user = users[0] as typeof userTables.user.Type | undefined
+    const authenticatedUser = c.get('user')
+    
+    // Get user from database
+    const users = userStore.query(
+      queryDb(userTables.user.where({ id: authenticatedUser.id })),
+    )
+    const user = users[0] as typeof userTables.user.Type | undefined
 
-      if (!user) {
-        return c.json(
-          {
-            error: {
-              code: 'USER_NOT_FOUND',
-              message: 'User not found',
-            },
-          },
-          404,
-        )
-      }
-
-      return c.json({
-        success: true,
-        user,
-        stores: authenticatedUser.stores,
-      })
-    } catch (error) {
-      console.error('Auth me error:', error)
+    if (!user) {
       return c.json(
         {
           error: {
-            code: 'INTERNAL_ERROR',
-            message: 'An internal server error occurred',
+            code: 'USER_NOT_FOUND',
+            message: 'User not found',
           },
         },
-        500,
+        404,
       )
     }
+
+    return c.json({
+      success: true,
+      user,
+      stores: authenticatedUser.stores,
+    })
   })
 
   return app
