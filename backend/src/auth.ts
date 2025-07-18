@@ -35,6 +35,7 @@ interface AuthTokenStore {
   getRefreshToken: (tokenId: string) => Promise<RefreshToken | undefined>
   revokeRefreshToken: (tokenId: string) => Promise<void>
   revokeAllUserRefreshTokens: (userId: string) => Promise<void>
+  rotateRefreshToken: (oldTokenId: string, userId: string) => Promise<string>
 }
 
 class SQLiteAuthTokenStore implements AuthTokenStore {
@@ -111,6 +112,20 @@ class SQLiteAuthTokenStore implements AuthTokenStore {
       userId
     )
   }
+
+  rotateRefreshToken = async (oldTokenId: string, userId: string): Promise<string> => {
+    // Atomic transaction: revoke old token and create new one
+    await this.db.run('BEGIN TRANSACTION')
+    try {
+      await this.revokeRefreshToken(oldTokenId)
+      const newTokenId = await this.createRefreshToken(userId)
+      await this.db.run('COMMIT')
+      return newTokenId
+    } catch (error) {
+      await this.db.run('ROLLBACK')
+      throw error
+    }
+  }
 }
 
 export type RefreshTokenValidationResult = 
@@ -179,9 +194,6 @@ export class DefaultAuthService implements AuthService {
       return { success: false, error: 'token_expired' }
     }
 
-    // Revoke old refresh token
-    await this.tokenStore.revokeRefreshToken(refreshToken)
-
     // Generate new tokens for the user
     const now = Math.floor(Date.now() / 1000)
     const accessTokenPayload: AccessTokenPayload = {
@@ -192,7 +204,8 @@ export class DefaultAuthService implements AuthService {
     }
 
     const accessToken = await sign(accessTokenPayload, JWT_CONFIG.ACCESS_TOKEN_SECRET)
-    const newRefreshToken = await this.tokenStore.createRefreshToken(storedToken.userId)
+    // Atomically revoke old token and create new one
+    const newRefreshToken = await this.tokenStore.rotateRefreshToken(refreshToken, storedToken.userId)
 
     return {
       success: true,
