@@ -1,3 +1,13 @@
+const LIVESTORE_TOKEN_KEY = 'livestoreToken'
+
+export function getLivestoreToken(): string | null {
+  return localStorage.getItem(LIVESTORE_TOKEN_KEY)
+}
+
+function setLivestoreToken(token: string): void {
+  localStorage.setItem(LIVESTORE_TOKEN_KEY, token)
+}
+
 export async function fetchWithAuth(
   input: RequestInfo,
   init?: RequestInit,
@@ -19,6 +29,10 @@ export async function fetchWithAuth(
   // handling errors for the 'first request' should suffice to handle refresh token expiration errors
   // could use a structured error value
   if (!refreshRes.ok) throw new Error('Auth refresh failed')
+
+  // Extract and store livestoreToken from refresh response
+  const refreshData = await refreshRes.json()
+  setLivestoreToken(refreshData.livestoreToken)
 
   // Retry original request
   return fetch(input, {

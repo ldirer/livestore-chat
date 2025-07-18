@@ -245,6 +245,7 @@ export function createServer(
       success: true,
       email: validation.email,
       message: 'Magic link validated successfully',
+      livestoreToken: tokens.livestoreToken,
     })
   })
 
@@ -305,6 +306,7 @@ export function createServer(
     return c.json({
       success: true,
       message: 'Tokens refreshed successfully',
+      livestoreToken: result.livestoreToken,
     })
   })
 

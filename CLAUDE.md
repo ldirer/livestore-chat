@@ -1,0 +1,1 @@
+- never write try catch return null. No silently ignoring errors.

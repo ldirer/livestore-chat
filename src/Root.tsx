@@ -19,7 +19,7 @@ const adapter = makePersistedAdapter({
 })
 
 function MainPage() {
-  const { user } = useAuthenticatedUserInfo()
+  const { user, livestoreToken } = useAuthenticatedUserInfo()
   const userStoreId = `user_${user.id}`
   return (
     <LiveStoreProvider
@@ -29,7 +29,7 @@ function MainPage() {
       renderLoading={(_) => <div>Loading LiveStore ({_.stage})...</div>}
       batchUpdates={batchUpdates}
       storeId={userStoreId}
-      syncPayload={{ authToken: 'insecure-token-change-me' }}
+      syncPayload={{ authToken: livestoreToken }}
     >
       <div
         style={{ top: 0, right: 0, position: 'absolute', background: '#333' }}

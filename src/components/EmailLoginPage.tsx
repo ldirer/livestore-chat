@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useURLParams } from '../hooks/useURLParams.ts'
 
+const LIVESTORE_TOKEN_KEY = 'livestoreToken'
+
+function setLivestoreToken(token: string): void {
+  localStorage.setItem(LIVESTORE_TOKEN_KEY, token)
+}
+
 const useEmailLoginToken = () => {
   const params = useURLParams()
   return params.token
@@ -43,6 +49,9 @@ const EmailLoginPage = () => {
           const data = await response.json()
 
           if (response.ok) {
+            // Store livestoreToken
+            setLivestoreToken(data.livestoreToken)
+
             // Login successful, redirect to home page
             window.location.href = '/'
           } else {

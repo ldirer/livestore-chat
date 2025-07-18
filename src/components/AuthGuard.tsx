@@ -1,9 +1,11 @@
 import { createContext, type ReactNode, useContext } from 'react'
+import { getLivestoreToken } from '../api.ts'
 import { type UserInfo, useAuthState } from '../hooks/useAuthState.ts'
 
 // Create a context to provide the authenticated user
 interface AuthContextType {
   user: UserInfo
+  livestoreToken: string
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -36,6 +38,8 @@ export const AuthGuard = ({ children }: AuthGuardProps) => {
 
   const authContextValue: AuthContextType = {
     user: authState.user,
+    // we just checked the user was authenticated, we should have a token
+    livestoreToken: getLivestoreToken()!,
   }
 
   return (

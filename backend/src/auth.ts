@@ -9,12 +9,21 @@ type UserType = typeof userTables.user.Type
 
 export const JWT_CONFIG = {
   ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET || 'your-access-token-secret-key',
+  LIVESTORE_TOKEN_SECRET: process.env.LIVESTORE_TOKEN_SECRET || 'your-livestore-token-secret-key',
   ACCESS_TOKEN_EXPIRES_IN_SECONDS: 15 * 60, // 15 minutes in seconds
   REFRESH_TOKEN_EXPIRES_IN_SECONDS: 7 * 24 * 60 * 60, // 7 days in seconds
   DB_PATH: './auth-tokens.db',
 }
 
 export interface AccessTokenPayload {
+  sub: string // user ID
+  stores: string[]
+  iat: number
+  exp: number
+  [key: string]: any
+}
+
+export interface LivestoreTokenPayload {
   sub: string // user ID
   stores: string[]
   iat: number
@@ -129,11 +138,11 @@ class SQLiteAuthTokenStore implements AuthTokenStore {
 }
 
 export type RefreshTokenValidationResult = 
-  | { success: true; accessToken: string; refreshToken: string }
+  | { success: true; accessToken: string; refreshToken: string; livestoreToken: string }
   | { success: false; error: 'token_not_found' | 'token_expired' | 'token_revoked' }
 
 export interface AuthService {
-  generateTokens: (user: UserType, stores: string[]) => Promise<{ accessToken: string; refreshToken: string }>
+  generateTokens: (user: UserType, stores: string[]) => Promise<{ accessToken: string; refreshToken: string; livestoreToken: string }>
   validateAccessToken: (token: string) => Promise<AccessTokenPayload | null>
   refreshTokens: (refreshToken: string) => Promise<RefreshTokenValidationResult>
   logout: (refreshToken: string) => Promise<void>
@@ -148,7 +157,7 @@ export async function createAuthTokenStore(): Promise<SQLiteAuthTokenStore> {
 export class DefaultAuthService implements AuthService {
   constructor(private tokenStore: AuthTokenStore) {}
 
-  generateTokens = async (user: UserType, stores: string[]): Promise<{ accessToken: string; refreshToken: string }> => {
+  generateTokens = async (user: UserType, stores: string[]): Promise<{ accessToken: string; refreshToken: string; livestoreToken: string }> => {
     const now = Math.floor(Date.now() / 1000)
 
     // Generate access token with user stores
@@ -161,12 +170,23 @@ export class DefaultAuthService implements AuthService {
 
     const accessToken = await sign(accessTokenPayload, JWT_CONFIG.ACCESS_TOKEN_SECRET)
     
+    // Generate livestore token with user stores
+    const livestoreTokenPayload: LivestoreTokenPayload = {
+      sub: user.id,
+      stores,
+      iat: now,
+      exp: now + JWT_CONFIG.ACCESS_TOKEN_EXPIRES_IN_SECONDS,
+    }
+
+    const livestoreToken = await sign(livestoreTokenPayload, JWT_CONFIG.LIVESTORE_TOKEN_SECRET)
+    
     // Generate opaque refresh token
     const refreshToken = await this.tokenStore.createRefreshToken(user.id)
 
     return {
       accessToken,
       refreshToken,
+      livestoreToken,
     }
   }
 
@@ -196,14 +216,27 @@ export class DefaultAuthService implements AuthService {
 
     // Generate new tokens for the user
     const now = Math.floor(Date.now() / 1000)
+    const stores = [`user_store_${storedToken.userId}`] // Default user store, will be enhanced later
+    
     const accessTokenPayload: AccessTokenPayload = {
       sub: storedToken.userId,
-      stores: [`user_store_${storedToken.userId}`], // Default user store, will be enhanced later
+      stores,
       iat: now,
       exp: now + JWT_CONFIG.ACCESS_TOKEN_EXPIRES_IN_SECONDS,
     }
 
     const accessToken = await sign(accessTokenPayload, JWT_CONFIG.ACCESS_TOKEN_SECRET)
+    
+    // Generate livestore token with user stores
+    const livestoreTokenPayload: LivestoreTokenPayload = {
+      sub: storedToken.userId,
+      stores,
+      iat: now,
+      exp: now + JWT_CONFIG.ACCESS_TOKEN_EXPIRES_IN_SECONDS,
+    }
+
+    const livestoreToken = await sign(livestoreTokenPayload, JWT_CONFIG.LIVESTORE_TOKEN_SECRET)
+    
     // Atomically revoke old token and create new one
     const newRefreshToken = await this.tokenStore.rotateRefreshToken(refreshToken, storedToken.userId)
 
@@ -211,6 +244,7 @@ export class DefaultAuthService implements AuthService {
       success: true,
       accessToken,
       refreshToken: newRefreshToken,
+      livestoreToken,
     }
   }
 
