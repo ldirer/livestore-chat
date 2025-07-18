@@ -317,7 +317,9 @@ export function createServer(
     const refreshToken = getCookie(c, 'refreshToken')
     const auth: AuthService = c.get('auth')
 
-    await auth.logout(refreshToken)
+    if (refreshToken) {
+      await auth.logout(refreshToken)
+    }
 
     // Clear both cookies
     setCookie(c, 'accessToken', '', {
