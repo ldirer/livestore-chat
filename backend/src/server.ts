@@ -52,7 +52,7 @@ async function createUser(email: string): typeof userTables.user.Type {
 // JWT Authentication middleware
 const jwtAuth = async (c: any, next: any) => {
   const accessToken = getCookie(c, 'accessToken')
-  const auth = c.get('auth')
+  const auth: AuthService = c.get('auth')
   
   if (!accessToken) {
     return c.json(
@@ -225,7 +225,7 @@ export function createServer(
     }
 
     // Generate JWT tokens
-    const auth = c.get('auth')
+    const auth: AuthService = c.get('auth')
     const userStores = [`user_store_${user.id}`] // Default user store, will be enhanced later
     const tokens = await auth.generateTokens(user, userStores)
 
@@ -268,7 +268,7 @@ export function createServer(
       )
     }
 
-    const auth = c.get('auth')
+    const auth: AuthService = c.get('auth')
     const result = await auth.refreshTokens(refreshToken)
 
     if (!result.success) {
@@ -343,7 +343,7 @@ export function createServer(
   // GET /auth/me endpoint
   // Returns current user info and their stores
   app.get('/auth/me', jwtAuth, async (c) => {
-    const authenticatedUser = c.get('user')
+    const authenticatedUser: AuthenticatedUser = c.get('user')
     
     // Get user from database
     const users = userStore.query(
