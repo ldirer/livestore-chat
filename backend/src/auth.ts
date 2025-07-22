@@ -123,12 +123,13 @@ class SQLiteAuthTokenStore implements AuthTokenStore {
   }
 
   rotateRefreshToken = async (oldTokenId: string, userId: string): Promise<string> => {
-    // Atomic transaction: revoke old token and create new one
-    return await this.db.transaction(async () => {
+    // we could use an atomic transaction here: revoke old token and create a new one.
+    // but I don't really know how to do that cleanly with one sqlite connection.
+    // if we BEGIN and then await something, concurrent requests could run queries. Not good!
+    // I don't really see how to do it without some sort of Mutex...
       await this.revokeRefreshToken(oldTokenId)
       const newTokenId = await this.createRefreshToken(userId)
       return newTokenId
-    })
   }
 }
 
