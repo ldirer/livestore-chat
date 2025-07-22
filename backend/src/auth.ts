@@ -216,7 +216,7 @@ export class DefaultAuthService implements AuthService {
 
     // Generate new tokens for the user
     const now = Math.floor(Date.now() / 1000)
-    const stores = [`user_store_${storedToken.userId}`] // Default user store, will be enhanced later
+    const stores = [`user_${storedToken.userId}`] // Default user store, will be enhanced later
     
     const accessTokenPayload: AccessTokenPayload = {
       sub: storedToken.userId,

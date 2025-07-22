@@ -220,9 +220,10 @@ export function createServer(
       )
     }
 
+    // TODO@ldirer big duplication of logic, userStores... with AuthService.refreshTokens
     // Generate JWT tokens
     const auth: AuthService = c.get('auth')
-    const userStores = [`user_store_${user.id}`] // Default user store, will be enhanced later
+    const userStores = [`user_${user.id}`] // Default user store, will be enhanced later
     const tokens = await auth.generateTokens(user, userStores)
 
     // Set HTTP-only cookies
