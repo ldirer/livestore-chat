@@ -124,16 +124,11 @@ class SQLiteAuthTokenStore implements AuthTokenStore {
 
   rotateRefreshToken = async (oldTokenId: string, userId: string): Promise<string> => {
     // Atomic transaction: revoke old token and create new one
-    await this.db.run('BEGIN TRANSACTION')
-    try {
+    return await this.db.transaction(async () => {
       await this.revokeRefreshToken(oldTokenId)
       const newTokenId = await this.createRefreshToken(userId)
-      await this.db.run('COMMIT')
       return newTokenId
-    } catch (error) {
-      await this.db.run('ROLLBACK')
-      throw error
-    }
+    })
   }
 }
 
