@@ -2,6 +2,7 @@ import {serve} from '@hono/node-server'
 import type {Store} from '@livestore/livestore'
 import {queryDb} from '@livestore/livestore'
 import {Hono} from 'hono'
+import {logger} from 'hono/logger'
 import {sendLoginLink, createAuthTokenStore, DefaultAuthService, type AuthService, JWT_CONFIG} from './auth'
 import type {MagicLinkService} from './magicLink.ts'
 import {createMagicLinkStore, DefaultMagicLinkService} from './magicLink'
@@ -109,6 +110,7 @@ export function createServer(
     )
   })
 
+  app.use('*', logger())
   // Set services in context
   app.use('*', async (c, next) => {
     c.set('magicLinks', magicLinks)
