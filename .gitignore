@@ -11,3 +11,7 @@ node_modules/
 dist/
 .server-livestore-adapter/
 backend.log
+
+# cloudflare secret variables. not only for development
+#https://developers.cloudflare.com/workers/configuration/environment-variables/#compare-secrets-and-environment-variables
+.dev.vars*

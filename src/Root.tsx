@@ -29,7 +29,7 @@ function MainPage() {
       renderLoading={(_) => <div>Loading LiveStore ({_.stage})...</div>}
       batchUpdates={batchUpdates}
       storeId={userStoreId}
-      syncPayload={{ authToken: livestoreToken }}
+      syncPayload={{ authToken: livestoreToken, storeId: userStoreId }}
     >
       <div
         style={{ top: 0, right: 0, position: 'absolute', background: '#333' }}
