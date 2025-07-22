@@ -3,7 +3,14 @@ import type {Store} from '@livestore/livestore'
 import {queryDb} from '@livestore/livestore'
 import {Hono} from 'hono'
 import {logger} from 'hono/logger'
-import {sendLoginLink, createAuthTokenStore, DefaultAuthService, type AuthService, JWT_CONFIG} from './auth'
+import {
+  sendLoginLink,
+  createAuthTokenStore,
+  DefaultAuthService,
+  type AuthService,
+  JWT_CONFIG,
+  RefreshTokenValidationError
+} from './auth'
 import type {MagicLinkService} from './magicLink.ts'
 import {createMagicLinkStore, DefaultMagicLinkService} from './magicLink'
 import type {schema as testSchema} from './schema/test'
@@ -222,7 +229,6 @@ export function createServer(
       )
     }
 
-    // TODO@ldirer big duplication of logic, userStores... with AuthService.refreshTokens
     // Generate JWT tokens
     const auth: AuthService = c.get('auth')
     const userStores = [`user_${user.id}`] // Default user store, will be enhanced later
@@ -272,13 +278,13 @@ export function createServer(
     const result = await auth.refreshTokens(refreshToken)
 
     if (!result.success) {
-      const errorMessages = {
+      const errorMessages: Record<RefreshTokenValidationError, string> = {
         token_not_found: 'Refresh token not found',
         token_expired: 'Refresh token has expired',
         token_revoked: 'Refresh token has been revoked',
       }
 
-      const errorResult = result as { success: false; error: 'token_not_found' | 'token_expired' | 'token_revoked' }
+      const errorResult = result
       return c.json(
         {
           error: {

@@ -132,10 +132,10 @@ class SQLiteAuthTokenStore implements AuthTokenStore {
       return newTokenId
   }
 }
-
+export type RefreshTokenValidationError = 'token_not_found' | 'token_expired' | 'token_revoked'
 export type RefreshTokenValidationResult = 
   | { success: true; accessToken: string; refreshToken: string; livestoreToken: string }
-  | { success: false; error: 'token_not_found' | 'token_expired' | 'token_revoked' }
+  | { success: false; error: RefreshTokenValidationError }
 
 export interface AuthService {
   generateTokens: (user: UserType, stores: string[]) => Promise<{ accessToken: string; refreshToken: string; livestoreToken: string }>
