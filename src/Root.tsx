@@ -6,7 +6,7 @@ import { FPSMeter } from '@overengineering/fps-meter'
 import type React from 'react'
 import { unstable_batchedUpdates as batchUpdates } from 'react-dom'
 import { AuthGuard, useAuthenticatedUserInfo } from './components/AuthGuard.tsx'
-import EmailLoginPage from './components/EmailLoginPage.js'
+import { MagicLoginPage } from './components/MagicLoginPage.tsx'
 import { MainSection } from './components/MainSection.js'
 import { tables, schema as userSchema } from './livestore/user-schema.ts'
 import UserLiveStoreWorker from './livestore.worker?worker'
@@ -46,7 +46,7 @@ export const App: React.FC = () => {
   const currentPath = window.location.pathname
 
   if (currentPath === '/login') {
-    return <EmailLoginPage />
+    return <MagicLoginPage />
   }
   return (
     <AuthGuard>

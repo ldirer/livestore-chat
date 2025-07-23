@@ -29,7 +29,7 @@ type LoginError = {
   message?: string
 }
 
-const EmailLoginPage = () => {
+export const MagicLoginPage = () => {
   // 'magic link' login: extract the token from url, use it to log in with the server and redirect to the home page
   const token = useEmailLoginToken()
   const [state, setState] = useState<LoginState>('loading')
@@ -152,5 +152,3 @@ const EmailLoginPage = () => {
 
   return null
 }
-
-export default EmailLoginPage
