@@ -1,6 +1,7 @@
 import { createContext, type ReactNode, useContext } from 'react'
 import { getLivestoreToken } from '../api.ts'
 import { type UserInfo, useAuthState } from '../hooks/useAuthState.ts'
+import { EmailLoginForm } from './EmailLoginForm.tsx'
 
 // Create a context to provide the authenticated user
 interface AuthContextType {
@@ -33,7 +34,7 @@ export const AuthGuard = ({ children }: AuthGuardProps) => {
 
   if (authState.error !== null) {
     // later: show email login form "looks like you are not signed in..."
-    return <div>Authentication error :o</div>
+    return <EmailLoginForm />
   }
 
   const authContextValue: AuthContextType = {
