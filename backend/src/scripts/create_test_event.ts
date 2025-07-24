@@ -3,13 +3,14 @@ import { makeAdapter } from '@livestore/adapter-node'
 import { createStorePromise, queryDb } from '@livestore/livestore'
 import { makeCfSync } from '@livestore/sync-cf'
 import { events, schema, tables as testTables } from '../schema/test'
+import { SYNC_URL } from '../config'
 
 const adapter = makeAdapter({
   // can't use shared storage with the server process - this would result in both processes trying to use the same database.
   // I ran into sqlite Disk I/O errors that I attribute to that.
   storage: { type: 'in-memory' },
   sync: {
-    backend: makeCfSync({ url: 'ws://localhost:8787' }),
+    backend: makeCfSync({ url: SYNC_URL }),
     onSyncError: 'shutdown',
   },
 })

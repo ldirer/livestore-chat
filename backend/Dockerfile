@@ -41,4 +41,6 @@ VOLUME /data
 # Start the server by default, this can be overwritten at runtime
 EXPOSE 3000
 ENV DATABASE_PATH="/data/auth.db"
+ENV FRONTEND_URL="https://livestore-chat.netlify.app/"
+ENV SYNC_URL="https://websocket-server.laurent-direr.workers.dev"
 CMD [ "bun", "run", "start", "--port", "3000", "--host", "0.0.0.0" ]

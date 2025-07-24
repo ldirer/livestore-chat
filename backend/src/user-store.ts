@@ -2,13 +2,14 @@ import { makeAdapter } from '@livestore/adapter-node'
 import { createStorePromise } from '@livestore/livestore'
 import { makeCfSync } from '@livestore/sync-cf'
 import { schema as userSchema } from './schema/user.ts'
+import {SYNC_URL} from "./config.ts";
 
 const adapter = makeAdapter({
   storage: { type: 'fs', baseDirectory: '.server-livestore-adapter' },
   // or in-memory:
   // storage: { type: 'in-memory' },
   sync: {
-    backend: makeCfSync({ url: 'ws://localhost:8787' }),
+    backend: makeCfSync({ url: SYNC_URL }),
     onSyncError: 'shutdown',
   },
   // To enable devtools:
