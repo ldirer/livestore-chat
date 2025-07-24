@@ -5,7 +5,6 @@ import {FRONTEND_URL} from "./config";
 
 const config = {
   LINK_VALIDITY_MINUTES: 15,
-  DB_PATH: './magic-links.db',
 }
 
 type MagicLink = {
@@ -23,18 +22,13 @@ interface MagicLinkStore {
 }
 
 class SQLiteMagicLinkStore implements MagicLinkStore {
-  private db!: Database
+  private db: Database
 
-  constructor() {
-    // Constructor will be async initialized via init() method
+  constructor(db: Database) {
+    this.db = db
   }
 
   async init() {
-    this.db = await open({
-      filename: config.DB_PATH,
-      driver: sqlite3.Database
-    })
-
     // Create magic links table if it does not exist
     await this.db.exec(`
       CREATE TABLE IF NOT EXISTS magic_links (
@@ -124,8 +118,8 @@ export interface MagicLinkService {
 
 export { SQLiteMagicLinkStore }
 
-export async function createMagicLinkStore(): Promise<SQLiteMagicLinkStore> {
-  const store = new SQLiteMagicLinkStore()
+export async function createMagicLinkStore(db: Database): Promise<SQLiteMagicLinkStore> {
+  const store = new SQLiteMagicLinkStore(db)
   await store.init()
   return store
 }

@@ -12,7 +12,6 @@ export const JWT_CONFIG = {
   LIVESTORE_TOKEN_SECRET: process.env.LIVESTORE_TOKEN_SECRET || 'your-livestore-token-secret-key',
   ACCESS_TOKEN_EXPIRES_IN_SECONDS: 15 * 60, // 15 minutes in seconds
   REFRESH_TOKEN_EXPIRES_IN_SECONDS: 7 * 24 * 60 * 60, // 7 days in seconds
-  DB_PATH: './auth-tokens.db',
 }
 
 export interface AccessTokenPayload {
@@ -48,18 +47,13 @@ interface AuthTokenStore {
 }
 
 class SQLiteAuthTokenStore implements AuthTokenStore {
-  private db!: Database
+  private db: Database
 
-  constructor() {
-    // Constructor will be async initialized via init() method
+  constructor(db: Database) {
+    this.db = db
   }
 
   async init() {
-    this.db = await open({
-      filename: JWT_CONFIG.DB_PATH,
-      driver: sqlite3.Database
-    })
-
     // Create refresh tokens table if it does not exist
     await this.db.exec(`
       CREATE TABLE IF NOT EXISTS refresh_tokens (
@@ -144,8 +138,8 @@ export interface AuthService {
   logout: (refreshToken: string) => Promise<void>
 }
 
-export async function createAuthTokenStore(): Promise<SQLiteAuthTokenStore> {
-  const store = new SQLiteAuthTokenStore()
+export async function createAuthTokenStore(db: Database): Promise<SQLiteAuthTokenStore> {
+  const store = new SQLiteAuthTokenStore(db)
   await store.init()
   return store
 }

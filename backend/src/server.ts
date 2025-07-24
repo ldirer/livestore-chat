@@ -9,7 +9,7 @@ import {
   DefaultAuthService,
   type AuthService,
   JWT_CONFIG,
-  RefreshTokenValidationError
+  type RefreshTokenValidationError
 } from './auth'
 import type {MagicLinkService} from './magicLink.ts'
 import {createMagicLinkStore, DefaultMagicLinkService} from './magicLink'
@@ -20,6 +20,8 @@ import {events as userEvents, tables as userTables} from './schema/user'
 import {randomUUID} from "node:crypto";
 import {createUserStore} from "./user-store";
 import { setCookie, getCookie } from 'hono/cookie';
+import * as sqlite3 from 'sqlite3';
+import { open, Database } from 'sqlite';
 
 type TestStoreType = Store<typeof testSchema>
 type UserStoreType = Store<typeof userSchema>
@@ -42,12 +44,13 @@ interface AppVariables {
 }
 
 
-async function createUser(email: string): typeof userTables.user.Type {
+async function createUser(email: string): Promise<typeof userTables.user.Type> {
   const newUser = {
     id: randomUUID(),
-    username: email.split('@')[0],  // Simple username from email
+    username: email.split('@')[0]!,  // Simple username from email
     email,
     createdAt: new Date(),
+    updatedAt: new Date(),
   }
 
   const userStore = await createUserStore(newUser.id)
@@ -382,17 +385,34 @@ export function createServer(
   return app
 }
 
+// Create centralized database initialization
+async function initializeDatabase(): Promise<Database> {
+  const dbPath = process.env.DATABASE_PATH
+  if (!dbPath) {
+    throw new Error('DATABASE_PATH environment variable required')
+  }
+  const db = await open({
+    filename: dbPath,
+    driver: sqlite3.Database
+  })
+  return db
+}
+
+
 export async function startServer(
   userStore?: UserStoreType,
   testStore?: TestStoreType,
   port = 9003,
 ) {
+  // Initialize centralized database
+  const db = await initializeDatabase()
+
   // Initialize magic link service
-  const magicLinkStore = await createMagicLinkStore()
+  const magicLinkStore = await createMagicLinkStore(db)
   const magicLinks = new DefaultMagicLinkService(magicLinkStore)
 
   // Initialize auth service
-  const authTokenStore = await createAuthTokenStore()
+  const authTokenStore = await createAuthTokenStore(db)
   const auth = new DefaultAuthService(authTokenStore)
 
   const app = createServer(
@@ -414,3 +434,4 @@ export async function startServer(
 
   return server
 }
+
