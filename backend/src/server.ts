@@ -129,6 +129,10 @@ export function createServer(
     await next()
   })
 
+  app.get('/healthcheck', (c) => {
+    return c.text('healthcheck without database access: ok')
+  })
+
   // debug helper endpoint
   app.get('/users', (c) => {
     const users = userStore.query(queryDb(userTables.user))
