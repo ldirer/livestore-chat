@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { makeAdapter } from '@livestore/adapter-node'
 import { createStorePromise, queryDb } from '@livestore/livestore'
-import { makeCfSync } from '../../../../third_party/livestore/packages/@livestore/sync-cf/src/sync-impl/ws-impl.ts'
-import { events, schema, tables as testTables } from '../schema/test.ts'
+import { makeCfSync } from '@livestore/sync-cf'
+import { events, schema, tables as testTables } from '../schema/test'
 
 const adapter = makeAdapter({
   // can't use shared storage with the server process - this would result in both processes trying to use the same database.
