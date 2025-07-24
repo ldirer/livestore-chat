@@ -17,6 +17,7 @@
     "@livestore/sync-cf": "^0.3.1",
     "@livestore/utils": "^0.3.1",
     "hono": "^4.8.5",
+    "resend": "^4.7.0",
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7"
   },

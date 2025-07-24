@@ -4,6 +4,8 @@ import { sign, verify } from 'hono/jwt'
 import { randomUUID } from 'node:crypto'
 import * as sqlite3 from 'sqlite3'
 import { open, Database } from 'sqlite'
+import {Resend} from "resend";
+import {RESEND_API_KEY} from "./config.ts";
 
 type UserType = typeof userTables.user.Type
 
@@ -254,15 +256,39 @@ export async function sendLoginLink(
   const emailContent = `Click this link to log in: ${loginUrl}`
 
   try {
-    await sendEmail(emailContent, user.email)
+    return await sendEmail(`Click this link to log in: <a href="${loginUrl}" target="_blank">${loginUrl}</a>`,emailContent, user.email)
   } catch (error) {
     console.error('Failed to send login link:', error)
     throw new Error('EmailCouldNotBeSent')
   }
 }
 
-// stub function, not implemented for now.
-async function sendEmail(content: string, email: string) {
+let resend: Resend
+if (RESEND_API_KEY !== undefined) {
+  resend = new Resend(RESEND_API_KEY)
+}
+
+
+async function sendEmail(htmlContent: string, textContent: string, email: string) {
   // logging the email to stdout (before sending it) so we can click the link in development.
-  console.log(`sending email to ${email}: ${content}`)
+  console.log(`sending email to ${email}: ${textContent}`)
+
+  if (RESEND_API_KEY === undefined) {
+    console.log('no resend API key, not sending email')
+    return
+  }
+
+  const { data, error } = await resend.emails.send({
+    from: 'LiveStore Chat <onboarding@resend.dev>',
+    to: [email],
+    subject: 'Your link to log in to Livestore Chat',
+    html: htmlContent,
+    text: textContent,
+  });
+
+  if (error) {
+    console.error("error sending email", error)
+    return error
+  }
+  console.log('resend email data', data)
 }

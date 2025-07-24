@@ -198,7 +198,10 @@ export function createServer(
     }
 
     // Send magic link
-    await sendLoginLink(magicLinks, user)
+    const error = await sendLoginLink(magicLinks, user)
+    if (error !== undefined) {
+      return c.json({success: false, message: "an error occurred sending the email"}, 500)
+    }
 
     return c.json({
       success: true,
