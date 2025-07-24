@@ -401,9 +401,10 @@ async function initializeDatabase(): Promise<Database> {
 
 
 export async function startServer(
-  userStore?: UserStoreType,
-  testStore?: TestStoreType,
-  port = 9003,
+  userStore: UserStoreType | undefined,
+  testStore: TestStoreType | undefined,
+  port: number,
+  hostname: string,
 ) {
   // Initialize centralized database
   const db = await initializeDatabase()
@@ -427,7 +428,7 @@ export async function startServer(
     {
       fetch: app.fetch,
       port,
-      hostname: "0.0.0.0",
+      hostname,
     },
     (info: AddressInfo) => {
       console.log(`Server listening on http://${info.address}:${info.port}`)
