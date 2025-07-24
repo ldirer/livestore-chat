@@ -1,1 +1,3 @@
 auth.db
+# including the server livestore adapter folder is... a bad idea.
+.server-livestore-adapter
