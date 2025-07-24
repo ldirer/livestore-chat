@@ -9,6 +9,7 @@ interface ViteTypeOptions {
 
 interface ImportMetaEnv {
   readonly VITE_LIVESTORE_SYNC_URL: string
+  readonly VITE_SERVER_BASE_URL: string
 }
 
 interface ImportMeta {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchWithAuth } from '../api.ts'
+import { SERVER_BASE_URL } from '../config.ts'
 
 export type StoreInfo = {
   type: string
@@ -48,7 +49,7 @@ export const useAuthState = (): UseAuthState => {
       try {
         setState((prev) => ({ ...prev, loading: true, error: null }))
 
-        const response = await fetchWithAuth('/auth/me')
+        const response = await fetchWithAuth(`${SERVER_BASE_URL}/auth/me`)
 
         if (response.ok) {
           const data = await response.json()

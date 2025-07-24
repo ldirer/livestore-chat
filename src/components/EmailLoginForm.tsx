@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SERVER_BASE_URL } from '../config.ts'
 
 type SubmissionState = 'idle' | 'loading' | 'success' | 'error'
 
@@ -19,13 +20,16 @@ export const EmailLoginForm = () => {
     setErrorMessage('')
 
     try {
-      const response = await fetch('/auth/request-magic-link', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${SERVER_BASE_URL}/auth/request-magic-link`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email: email.trim() }),
         },
-        body: JSON.stringify({ email: email.trim() }),
-      })
+      )
 
       if (response.ok) {
         setState('success')

@@ -1,3 +1,5 @@
+import { SERVER_BASE_URL } from './config.ts'
+
 const LIVESTORE_TOKEN_KEY = 'livestoreToken'
 
 export function getLivestoreToken(): string | null {
@@ -20,7 +22,7 @@ export async function fetchWithAuth(
   if (res.status !== 401 && res.status !== 403) return res
 
   // Attempt token refresh
-  const refreshRes = await fetch('/auth/refresh', {
+  const refreshRes = await fetch(`${SERVER_BASE_URL}/auth/refresh`, {
     method: 'POST',
     credentials: 'include',
   })

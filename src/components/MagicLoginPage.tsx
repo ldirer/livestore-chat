@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { SERVER_BASE_URL } from '../config.ts'
 import { useURLParams } from '../hooks/useURLParams.ts'
 
 const LIVESTORE_TOKEN_KEY = 'livestoreToken'
@@ -38,7 +39,7 @@ export const MagicLoginPage = () => {
   useEffect(() => {
     if (token !== undefined) {
       // Submit the magic link token to the backend
-      fetch('/auth/submit-magic-link', {
+      fetch(`${SERVER_BASE_URL}/auth/submit-magic-link`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

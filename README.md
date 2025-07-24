@@ -32,7 +32,7 @@ I just copied the example from the LiveStore repo (they have several examples, n
 
 Build:
 ```
-VITE_LIVESTORE_SYNC_URL="$PROD_WRANGLER_DEPLOY" bun run build 
+VITE_SERVER_BASE_URL="https://livestore-chat-backend.fly.dev/" VITE_LIVESTORE_SYNC_URL="$PROD_WRANGLER_DEPLOY" bun run build 
 ```
 
 Deploy worker to cloudflare and JS to netlify:
