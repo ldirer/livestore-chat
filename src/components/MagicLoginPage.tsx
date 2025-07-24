@@ -45,6 +45,7 @@ export const MagicLoginPage = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ token }),
+        credentials: 'include', // required for cookies to be persisted cross origin
       })
         .then(async (response) => {
           const data = await response.json()
