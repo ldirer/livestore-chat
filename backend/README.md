@@ -21,3 +21,8 @@ That's because:
 - LiveStore crashes if it receives an unknown event. 
 
 That's why a materializer is defined too.
+
+## Deployment
+```
+fly deploy
+```

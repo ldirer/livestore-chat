@@ -24,4 +24,6 @@ primary_region = 'cdg'
   processes = ['app']
 
 [[vm]]
+  # with 256MB bun start was just hanging, server never up.
+  memory = 512
   size = 'shared-cpu-1x'
