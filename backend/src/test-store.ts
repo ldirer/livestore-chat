@@ -6,14 +6,10 @@ import {SYNC_URL} from "./config.ts";
 
 const adapter = makeAdapter({
   storage: { type: 'fs', baseDirectory: '.server-livestore-adapter' },
-  // or in-memory:
-  // storage: { type: 'in-memory' },
   sync: {
     backend: makeCfSync({ url: SYNC_URL }),
     onSyncError: 'shutdown',
   },
-  // To enable devtools:
-  // devtools: { schemaPath: new URL('./schema.ts', import.meta.url) },
 })
 
 export async function createTestStore() {
