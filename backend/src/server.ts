@@ -23,6 +23,7 @@ import { setCookie, getCookie } from 'hono/cookie';
 import * as sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
 import type {AddressInfo} from "node:net";
+import { FRONTEND_URL } from './config';
 
 type TestStoreType = Store<typeof testSchema>
 type UserStoreType = Store<typeof userSchema>
@@ -122,6 +123,23 @@ export function createServer(
   })
 
   app.use('*', logger())
+
+  // CORS middleware - allow requests only from FRONTEND_URL
+  app.use('*', async (c, next) => {
+    // Allow requests from FRONTEND_URL only
+    c.header('Access-Control-Allow-Origin', FRONTEND_URL)
+    c.header('Access-Control-Allow-Credentials', 'true')
+    c.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+    c.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie')
+
+    // Handle preflight OPTIONS requests
+    if (c.req.method === 'OPTIONS') {
+      return c.body(null, 204)
+    }
+
+    await next()
+  })
+
   // Set services in context
   app.use('*', async (c, next) => {
     c.set('magicLinks', magicLinks)
@@ -243,18 +261,19 @@ export function createServer(
     const tokens = await auth.generateTokens(user, userStores)
 
     // Set HTTP-only cookies
+    // need sameSite: 'none' since our deployment involves cross-origin requests.
     // We don't want cookies expiring before tokens, so a stale token can be detected as 'your authentication expired'
     setCookie(c, 'accessToken', tokens.accessToken, {
       httpOnly: true,
       secure: true,
-      sameSite: 'Lax',
+      sameSite: 'None',
       maxAge: Math.floor(JWT_CONFIG.ACCESS_TOKEN_EXPIRES_IN_SECONDS * 1.5),
     })
 
     setCookie(c, 'refreshToken', tokens.refreshToken, {
       httpOnly: true,
       secure: true,
-      sameSite: 'Lax',
+      sameSite: 'None',
       maxAge: Math.floor(JWT_CONFIG.REFRESH_TOKEN_EXPIRES_IN_SECONDS * 1.5),
     })
 
@@ -309,14 +328,14 @@ export function createServer(
     setCookie(c, 'accessToken', result.accessToken, {
       httpOnly: true,
       secure: true,
-      sameSite: 'Lax',
+      sameSite: 'None',
       maxAge: Math.floor(JWT_CONFIG.ACCESS_TOKEN_EXPIRES_IN_SECONDS * 1.5),
     })
 
     setCookie(c, 'refreshToken', result.refreshToken, {
       httpOnly: true,
       secure: true,
-      sameSite: 'Lax',
+      sameSite: 'None',
       maxAge: Math.floor(JWT_CONFIG.REFRESH_TOKEN_EXPIRES_IN_SECONDS * 1.5),
     })
 
@@ -340,14 +359,14 @@ export function createServer(
     setCookie(c, 'accessToken', '', {
       httpOnly: true,
       secure: true,
-      sameSite: 'Lax',
+      sameSite: 'None',
       maxAge: 0, // Expire immediately
     })
 
     setCookie(c, 'refreshToken', '', {
       httpOnly: true,
       secure: true,
-      sameSite: 'Lax',
+      sameSite: 'None',
       maxAge: 0, // Expire immediately
     })
 
