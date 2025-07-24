@@ -1,15 +1,31 @@
 {
+  // https://bun.com/docs/typescript#suggested-compileroptions
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "node",
+    "lib": ["ESNext"],
+    "target": "ESNext",
+    // tells typescript not to rewrite import/export
+    // bun does not really care since it does not run the TypeScript compiler, this is for IDEs, not sure exactly why.
+    "module": "Preserve",
+    // tell TypeScript to resolve modules like bun. For IDEs/Type checking.
+    "moduleDetection": "force",
+    "allowJs": true,
+
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "allowJs": true,
+    // Best practices
     "strict": true,
     "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
+
     "outDir": "./dist",
     "rootDir": "./src",
     "resolveJsonModule": true
