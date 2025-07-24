@@ -22,6 +22,7 @@ import {createUserStore} from "./user-store";
 import { setCookie, getCookie } from 'hono/cookie';
 import * as sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
+import type {AddressInfo} from "node:net";
 
 type TestStoreType = Store<typeof testSchema>
 type UserStoreType = Store<typeof userSchema>
@@ -426,9 +427,10 @@ export async function startServer(
     {
       fetch: app.fetch,
       port,
+      hostname: "0.0.0.0",
     },
-    (info: { port: number }) => {
-      console.log(`Server listening on http://localhost:${info.port}`)
+    (info: AddressInfo) => {
+      console.log(`Server listening on http://${info.address}:${info.port}`)
     },
   )
 
