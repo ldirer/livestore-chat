@@ -8,7 +8,11 @@ import { unstable_batchedUpdates as batchUpdates } from 'react-dom'
 import { BrowserRouter, Route, Routes } from 'react-router'
 import { AuthGuard, useAuthenticatedUserInfo } from './components/AuthGuard.tsx'
 import { MagicLoginPage } from './components/MagicLoginPage.tsx'
-import { tables, schema as userSchema } from './livestore/user-schema.ts'
+import {
+  tables,
+  type UserType,
+  schema as userSchema,
+} from './livestore/user-schema.ts'
 import UserLiveStoreWorker from './livestore.worker?worker'
 
 const adapter = makePersistedAdapter({
@@ -74,8 +78,44 @@ const AppBody: React.FC = () => {
   }
 
   return (
-    <section>
-      <div>Authentication info from api: Hello {user.username}!</div>
+    <section style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+      <div>Hello {user.username}! (username info from API)</div>
+      <div>
+        Store contents:
+        <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+          <thead>
+            <tr>
+              <th style={tableHeaderStyle}>ID</th>
+              <th style={tableHeaderStyle}>Username</th>
+              <th style={tableHeaderStyle}>Email</th>
+              <th style={tableHeaderStyle}>Created at</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <StoreUser key={u.id} user={u} />
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
+  )
+}
+
+const tableHeaderStyle = {
+  border: '1px solid #ddd',
+  padding: '8px',
+  textAlign: 'left' as const,
+}
+const tableCellStyle = { border: '1px solid #ddd', padding: '8px' }
+
+const StoreUser = ({ user }: { user: UserType }) => {
+  return (
+    <tr>
+      <td style={tableCellStyle}>{user.id}</td>
+      <td style={tableCellStyle}>{user.username}</td>
+      <td style={tableCellStyle}>{user.email}</td>
+      <td style={tableCellStyle}>{user.createdAt.toLocaleString()}</td>
+    </tr>
   )
 }
