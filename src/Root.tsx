@@ -5,6 +5,7 @@ import { LiveStoreProvider, useStore } from '@livestore/react'
 import { FPSMeter } from '@overengineering/fps-meter'
 import type React from 'react'
 import { unstable_batchedUpdates as batchUpdates } from 'react-dom'
+import { BrowserRouter, Route, Routes } from 'react-router'
 import { AuthGuard, useAuthenticatedUserInfo } from './components/AuthGuard.tsx'
 import { MagicLoginPage } from './components/MagicLoginPage.tsx'
 import { MainSection } from './components/MainSection.js'
@@ -42,16 +43,20 @@ function MainPage() {
 }
 
 export const App: React.FC = () => {
-  // quick hack, routing like this only works on first render.
-  const currentPath = window.location.pathname
-
-  if (currentPath === '/login') {
-    return <MagicLoginPage />
-  }
   return (
-    <AuthGuard>
-      <MainPage />
-    </AuthGuard>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<MagicLoginPage />} />
+        <Route
+          path="/*"
+          element={
+            <AuthGuard>
+              <MainPage />
+            </AuthGuard>
+          }
+        />
+      </Routes>
+    </BrowserRouter>
   )
 }
 

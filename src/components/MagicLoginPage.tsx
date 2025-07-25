@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { SERVER_BASE_URL } from '../config.ts'
 import { useURLParams } from '../hooks/useURLParams.ts'
 
@@ -33,6 +34,7 @@ type LoginError = {
 export const MagicLoginPage = () => {
   // 'magic link' login: extract the token from url, use it to log in with the server and redirect to the home page
   const token = useEmailLoginToken()
+  const navigate = useNavigate()
   const [state, setState] = useState<LoginState>('loading')
   const [error, setError] = useState<LoginError | null>(null)
 
@@ -55,7 +57,7 @@ export const MagicLoginPage = () => {
             setLivestoreToken(data.livestoreToken)
 
             // Login successful, redirect to home page
-            window.location.href = '/'
+            navigate('/')
           } else {
             // Login failed
             setState('error')
@@ -136,7 +138,7 @@ export const MagicLoginPage = () => {
         <h2>❌ Login Failed</h2>
         <div style={{ marginBottom: '1rem' }}>{getErrorMessage(error!)}</div>
         <button
-          onClick={() => (window.location.href = '/')}
+          onClick={() => navigate('/')}
           style={{
             padding: '0.5rem 1rem',
             backgroundColor: '#007bff',
