@@ -38,6 +38,7 @@ export const MagicLoginPage = () => {
   const [state, setState] = useState<LoginState>('loading')
   const [error, setError] = useState<LoginError | null>(null)
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: navigate is intentionally omitted
   useEffect(() => {
     if (token !== undefined) {
       // Submit the magic link token to the backend
@@ -136,8 +137,14 @@ export const MagicLoginPage = () => {
     return (
       <div style={{ textAlign: 'center', padding: '2rem' }}>
         <h2>❌ Login Failed</h2>
-        <div style={{ marginBottom: '1rem' }}>{getErrorMessage(error!)}</div>
+        <div style={{ marginBottom: '1rem' }}>
+          {
+            // biome-ignore lint/style/noNonNullAssertion: error is guaranteed to be non-null in this branch
+            getErrorMessage(error!)
+          }
+        </div>
         <button
+          type="button"
           onClick={() => navigate('/')}
           style={{
             padding: '0.5rem 1rem',

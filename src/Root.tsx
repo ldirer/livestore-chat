@@ -8,7 +8,6 @@ import { unstable_batchedUpdates as batchUpdates } from 'react-dom'
 import { BrowserRouter, Route, Routes } from 'react-router'
 import { AuthGuard, useAuthenticatedUserInfo } from './components/AuthGuard.tsx'
 import { MagicLoginPage } from './components/MagicLoginPage.tsx'
-import { MainSection } from './components/MainSection.js'
 import { tables, schema as userSchema } from './livestore/user-schema.ts'
 import UserLiveStoreWorker from './livestore.worker?worker'
 
@@ -62,6 +61,7 @@ export const App: React.FC = () => {
 
 const AppBody: React.FC = () => {
   const { store } = useStore()
+  const { user } = useAuthenticatedUserInfo()
   const users = store.useQuery(queryDb(tables.userProfile))
   console.log('users.length', users.length)
 
@@ -75,7 +75,7 @@ const AppBody: React.FC = () => {
 
   return (
     <section>
-      <MainSection />
+      <div>Authentication info from api: Hello {user.username}!</div>
     </section>
   )
 }

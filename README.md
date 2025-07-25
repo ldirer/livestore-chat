@@ -5,25 +5,13 @@ The goal is to start from a very basic application and tackle typical web develo
 ## Running locally
 
 ```bash
-export VITE_LIVESTORE_SYNC_URL='http://localhost:8787'
 bun dev
 ```
 
-
-Clear auth server backend storage: 
-
+Clear auth server backend storage (related to livestore): 
 ```
 rm -r .server-livestore-adapter/*
 ```
-
-
-# Ugh
-
-The backend TS server uses the frontend package.json.
-If it just works.
-Temporary of course... I'm hoping tree shaking makes it all work ok. The backend imports code from frontend (livestore schemas).
-
-Eventually I just copied stuff so there shouldn't be imports, which is just simpler in this case (avoids confusion too).
 
 ## Deployment
 
