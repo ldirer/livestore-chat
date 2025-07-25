@@ -21,12 +21,15 @@ export default makeWorker({
   // this runs right before establishing the websocket connection.
   // my understanding is after that a malicious user could send anything in the websocket.
   // they would be limited to the relevant store by this ('caveat' comment below), so this should be sufficient security as long as we don't have permissions.
+  // biome-ignore lint/suspicious/noExplicitAny: whatever
   validatePayload: async (payload: any) => {
     const authToken = payload?.authToken
 
     // Check if token exists
     if (!authToken) {
       console.log('JWT validation failed: No auth token provided')
+      // @ts-expect-error I think CloudFlare workers support the 'cause' parameter, but it's ES2022
+      // and they only support _part_ of it, so we don't want to change the tsconfig? ANYWAY.
       throw new Error('No auth token provided', { cause: { status: 401 } })
     }
 
@@ -57,6 +60,7 @@ async function validateJWT(authToken: string, requestStoreId: string) {
     // Validate that the token has a stores property
     if (!decoded.stores || !Array.isArray(decoded.stores)) {
       console.log('JWT validation failed: Token missing stores array')
+      // @ts-expect-error cause arg
       throw new Error('Invalid token: missing stores', {
         cause: { status: 403 },
       })
@@ -67,12 +71,14 @@ async function validateJWT(authToken: string, requestStoreId: string) {
       console.log('JWT validation failed: Store access denied')
       console.log('decoded.stores', decoded.stores)
       console.log('requestStoreId', requestStoreId)
+      // @ts-expect-error cause arg
       throw new Error('Store access denied', { cause: { status: 403 } })
     }
 
     console.log('JWT validation successful')
   } catch (error) {
     // Handle JWT parsing/validation errors
+    // @ts-ignore
     if (error.cause?.status) {
       // Re-throw our custom errors with status codes
       throw error
@@ -80,8 +86,10 @@ async function validateJWT(authToken: string, requestStoreId: string) {
 
     // Handle JWT library errors (signature verification, expiration, etc.)
     console.log('JWT validation failed: Invalid JWT', {
+      // @ts-ignore
       error: error.message,
     })
+    // @ts-expect-error cause arg
     throw new Error('Invalid JWT token', { cause: { status: 401 } })
   }
 }

@@ -5,10 +5,10 @@ Sanity-check that sync works with a simple store:
 
     
     # launch server
-    bun src/backend/index.ts
+    bun src/index.ts --host localhost --port 9003
 
     # in another terminal
-    bun src/backend/scripts/create_test_event.ts
+    bun src/scripts/create_test_event.ts
 
     # you should see the new event in the response to:
     http http://localhost:9003/test
@@ -23,6 +23,9 @@ That's because:
 That's why a materializer is defined too.
 
 ## Deployment
+
+Deploying to Fly, using a persisted volume because LiveStore and the auth system both use the filesystem to store sqlite data.
+
 ```
 fly deploy
 ```

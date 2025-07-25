@@ -134,7 +134,7 @@ export const MagicLoginPage = () => {
     return (
       <div style={{ textAlign: 'center', padding: '2rem' }}>
         <h2>❌ Login Failed</h2>
-        <div style={{ marginBottom: '1rem' }}>{getErrorMessage(error)}</div>
+        <div style={{ marginBottom: '1rem' }}>{getErrorMessage(error!)}</div>
         <button
           onClick={() => (window.location.href = '/')}
           style={{
